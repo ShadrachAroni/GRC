@@ -38,7 +38,7 @@ services:
     environment:
       - ENVIRONMENT=development
       - DATABASE_URL=postgresql://grc:securepass@db:5432/grcdb
-      - JWT_SECRET_KEY=9f8c6e2b34a1e948fd05e2bb398f6d4d12c8b0e513dcf502c34a2e519e48bc7b
+      - JWT_SECRET_KEY=${JWT_SECRET_KEY}
       - STRIPE_WEBHOOK_SECRET=whsec_mock_stripe_secret_for_development_purposes_only_1234
       - DEV_ORIGINS=http://localhost:3000,http://127.0.0.1:3000
       - REDIS_URL=redis://redis:6379/0
