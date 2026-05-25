@@ -1,0 +1,41 @@
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+venv/
+.venv/
+.pytest_cache/
+.coverage
+htmlcov/
+*.db
+*.sqlite
+
+# JavaScript/Node
+node_modules/
+dist/
+build/
+.next/
+out/
+.npm
+.eslintcache
+*.log
+
+# Environments & Secrets
+.env
+.env.local
+.env.development.local
+.env.test.local
+.env.production.local
+*.pem
+
+# IDEs & System
+.vscode/
+.idea/
+.DS_Store
+Thumbs.db
+
+
+/Docs/GRC_System_Architecture_Build_Documentation.pdf
+/Docs/SecureBank_Security_Measures.pdf
+/Assets/Screens
+/Tasks

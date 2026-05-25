@@ -1,0 +1,74 @@
+version: '3.9'
+
+services:
+  db:
+    image: postgres:16-alpine
+    container_name: grc_db
+    restart: always
+    user: postgres
+    environment:
+      POSTGRES_DB: grcdb
+      POSTGRES_USER: grc
+      POSTGRES_PASSWORD: securepass
+    ports:
+      - "5432:5432"
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    networks:
+      - grc_network
+
+  redis:
+    image: redis:7.2-alpine
+    container_name: grc_redis
+    restart: always
+    user: redis
+    ports:
+      - "6379:6379"
+    volumes:
+      - redisdata:/data
+    networks:
+      - grc_network
+
+  api:
+    build:
+      context: .
+      dockerfile: api/Dockerfile
+    container_name: grc_api
+    restart: always
+    environment:
+      - ENVIRONMENT=development
+      - DATABASE_URL=postgresql://grc:securepass@db:5432/grcdb
+      - JWT_SECRET_KEY=9f8c6e2b34a1e948fd05e2bb398f6d4d12c8b0e513dcf502c34a2e519e48bc7b
+      - STRIPE_WEBHOOK_SECRET=whsec_mock_stripe_secret_for_development_purposes_only_1234
+      - DEV_ORIGINS=http://localhost:3000,http://127.0.0.1:3000
+      - REDIS_URL=redis://redis:6379/0
+    ports:
+      - "8000:8000"
+    depends_on:
+      - db
+      - redis
+    networks:
+      - grc_network
+
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+    container_name: grc_frontend
+    restart: always
+    environment:
+      - NEXT_PUBLIC_API_URL=http://localhost:8000
+    ports:
+      - "3000:3000"
+    depends_on:
+      - api
+    networks:
+      - grc_network
+
+volumes:
+  pgdata:
+  redisdata:
+
+networks:
+  grc_network:
+    driver: bridge
