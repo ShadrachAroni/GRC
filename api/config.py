@@ -14,6 +14,7 @@ class Settings(BaseSettings):
     # CORS Configurations
     DEV_ORIGINS: str = "http://localhost:3000,http://127.0.0.1:3000"
     PROD_ORIGINS: str = "https://myapp.com,https://www.myapp.com"
+    ALLOWED_REDIRECT_URIS: str = "http://localhost:3000/auth/callback,http://localhost:3000/login,http://localhost:3000/"
     
     # Redis
     REDIS_URL: Optional[str] = None

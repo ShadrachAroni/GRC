@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import { Inter, JetBrains_Mono } from "next/font/google";
 import "./globals.css";
+import { RouteGuard } from "@/components/organisms/RouteGuard";
 
 const inter = Inter({
   subsets: ["latin"],
@@ -25,7 +26,7 @@ export default function RootLayout({
   return (
     <html lang="en">
       <body className={`${inter.variable} ${jetbrainsMono.variable} font-sans antialiased text-primary bg-background`}>
-        {children}
+        <RouteGuard>{children}</RouteGuard>
       </body>
     </html>
   );

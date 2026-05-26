@@ -5,6 +5,7 @@ export interface InputProps extends React.InputHTMLAttributes<HTMLInputElement> 
   label?: string;
   helperText?: string;
   error?: string;
+  leftIcon?: React.ReactNode;
 }
 
 export const Input = forwardRef<HTMLInputElement, InputProps>(
@@ -15,6 +16,7 @@ export const Input = forwardRef<HTMLInputElement, InputProps>(
       label,
       helperText,
       error,
+      leftIcon,
       id,
       disabled,
       name,
@@ -48,7 +50,8 @@ export const Input = forwardRef<HTMLInputElement, InputProps>(
     const helperId = `${inputId}-helper`;
 
     const inputClass = cn(
-      "w-full px-3 py-1.5 h-10 rounded-md bg-white dark:bg-slate-900 border text-body-md text-primary dark:text-slate-100 placeholder-slate-400 dark:placeholder-slate-500 transition-colors duration-150 ease-in-out focus:outline-none focus:ring-1 disabled:opacity-50 disabled:cursor-not-allowed select-text",
+      "w-full py-1.5 h-10 rounded-md bg-white dark:bg-slate-900 border text-body-md text-primary dark:text-slate-100 placeholder-slate-400 dark:placeholder-slate-500 transition-colors duration-150 ease-in-out focus:outline-none focus:ring-1 disabled:opacity-50 disabled:cursor-not-allowed select-text",
+      leftIcon ? "pl-10 pr-3" : "px-3",
       error
         ? "border-danger-rose focus:border-danger-rose focus:ring-danger-rose"
         : "border-surface-border dark:border-slate-800 focus:border-primary focus:ring-primary",
@@ -66,6 +69,11 @@ export const Input = forwardRef<HTMLInputElement, InputProps>(
           </label>
         )}
         <div className="relative">
+          {leftIcon && (
+            <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none text-slate-400 dark:text-slate-500">
+              {leftIcon}
+            </div>
+          )}
           {error ? (
             <input
               id={inputId}

@@ -17,7 +17,7 @@ Detailed implementation status of the 15 core security controls from the **Secur
 - **Detail**: Restrict origins to `https://myapp.com` and `https://www.myapp.com` in production, allow `localhost:3000` via `DEV_ORIGINS` toggle.
 
 ### 2. Redirect URL Validation
-- **Status**: Exact comparison validation
+- **Status**: Implemented (exact static allow-list match)
 - **Layer**: Identity / Auth Router
 - **Detail**: Validate `redirect_uri` against static allow-list in `.env`. Prefix-matching is prohibited.
 
@@ -37,7 +37,7 @@ Detailed implementation status of the 15 core security controls from the **Secur
 - **Detail**: SHA256 HMAC payload verification using `stripe.Webhook.construct_event`. Never fallback.
 
 ### 6. Server-Side Role Authorisation (RBAC)
-- **Status**: Proposed
+- **Status**: Implemented (server-side gates via dependencies)
 - **Layer**: API Decorator / Security Middleware
 - **Detail**: Server-side validation of user roles (Viewer, GRC Analyst, Administrator). Privileged actions require `admin` role.
 
@@ -47,7 +47,7 @@ Detailed implementation status of the 15 core security controls from the **Secur
 - **Detail**: Run `npm audit --audit-level=high` and `safety check` on requirements.txt on pull requests.
 
 ### 8. Password Reset Rate Limiting
-- **Status**: Proposed
+- **Status**: Implemented (SlowAPI rate limiting + generic response)
 - **Layer**: Auth Router
 - **Detail**: Limit to 3 requests per email per hour using SlowAPI. Standardize generic anti-enumeration response.
 
@@ -57,7 +57,7 @@ Detailed implementation status of the 15 core security controls from the **Secur
 - **Detail**: Global exception handlers hiding detailed system tracebacks. Detailed errors logged server-side only.
 
 ### 10. JWT Expiration & Refresh Token Rotation
-- **Status**: Proposed
+- **Status**: Implemented (jti-unique rotating hashed refresh tokens)
 - **Layer**: Identity
 - **Detail**: 7 days access token expiry. Hashed refresh tokens with rotation and replay detection.
 

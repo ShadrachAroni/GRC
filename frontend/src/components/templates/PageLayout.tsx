@@ -2,7 +2,7 @@
 
 import React, { useState, useEffect } from "react";
 import Link from "next/link";
-import { usePathname } from "next/navigation";
+import { usePathname, useRouter } from "next/navigation";
 import { motion } from "framer-motion";
 import {
   LayoutDashboard,
@@ -15,10 +15,12 @@ import {
   Moon,
   Bell,
   User,
+  LogOut,
 } from "lucide-react";
 import { cn } from "@/utils/cn";
 import { Breadcrumbs, BreadcrumbItem } from "@/components/molecules/Breadcrumbs";
 import { getVariants, slideVerticalVariants } from "@/utils/motion";
+import { useAuthStore } from "@/context/AuthStore";
 
 export interface PageLayoutProps {
   children: React.ReactNode;
@@ -40,8 +42,15 @@ export const PageLayout: React.FC<PageLayoutProps> = ({
   title,
 }) => {
   const pathname = usePathname();
+  const router = useRouter();
+  const { user, logout } = useAuthStore();
   const [theme, setTheme] = useState<"light" | "dark">("light");
   const [shouldReduceMotion, setShouldReduceMotion] = useState(false);
+
+  const handleLogout = async () => {
+    await logout();
+    router.push("/login");
+  };
 
   // Initialize theme and prefers-reduced-motion
   useEffect(() => {
@@ -162,19 +171,27 @@ export const PageLayout: React.FC<PageLayoutProps> = ({
               <span className="absolute top-1.5 right-1.5 w-1.5 h-1.5 rounded-full bg-danger-rose" />
             </button>
 
-            {/* Profile Avatar */}
+            {/* Profile Avatar & Logout */}
             <div className="flex items-center gap-2.5 pl-2 border-l border-surface-border dark:border-slate-800">
               <div className="w-8 h-8 rounded-full bg-slate-200 dark:bg-slate-800 flex items-center justify-center text-primary dark:text-slate-200">
                 <User className="w-4 h-4" />
               </div>
-              <div className="hidden lg:block text-left">
-                <p className="text-body-sm font-semibold leading-tight text-primary dark:text-slate-200">
-                  Admin User
+              <div className="hidden lg:block text-left mr-2">
+                <p className="text-body-sm font-semibold leading-tight text-primary dark:text-slate-200 truncate max-w-[150px]" title={user?.email || "User"}>
+                  {user?.email || "User"}
                 </p>
-                <p className="text-[11px] text-secondary dark:text-slate-400 leading-none">
-                  Security Officer
+                <p className="text-[11px] text-secondary dark:text-slate-400 leading-none capitalize">
+                  {user?.role || "Viewer"}
                 </p>
               </div>
+              <button
+                onClick={handleLogout}
+                className="p-1.5 rounded-md hover:bg-slate-100 dark:hover:bg-slate-800 text-rose-500 hover:text-rose-600 transition-colors"
+                aria-label="Logout"
+                title="Logout"
+              >
+                <LogOut className="w-4 h-4" />
+              </button>
             </div>
           </div>
         </header>

@@ -3,21 +3,24 @@ from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy.orm import sessionmaker
 from api.config import settings
 
-# Determine if using SQLite or PostgreSQL
 is_sqlite = settings.DATABASE_URL.startswith("sqlite")
-
 connect_args = {}
 if is_sqlite:
-    # SQLite-specific thread settings
     connect_args = {"check_same_thread": False}
+
+engine_args = {
+    "pool_pre_ping": True,
+}
+if connect_args:
+    engine_args["connect_args"] = connect_args
+
+if not is_sqlite:
+    engine_args["pool_size"] = 5
+    engine_args["max_overflow"] = 10
 
 engine = create_engine(
     settings.DATABASE_URL,
-    connect_args=connect_args,
-    pool_pre_ping=True,
-    # Configure production pool size limit
-    pool_size=5 if not is_sqlite else None,
-    max_overflow=10 if not is_sqlite else None,
+    **engine_args
 )
 
 SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
