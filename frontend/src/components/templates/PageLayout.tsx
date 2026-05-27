@@ -8,6 +8,7 @@ import {
   LayoutDashboard,
   ShieldCheck,
   AlertTriangle,
+  AlertOctagon,
   ClipboardList,
   Settings,
   Search,
@@ -32,6 +33,7 @@ const navItems = [
   { label: "Dashboard", href: "/", icon: LayoutDashboard },
   { label: "Controls", href: "/controls", icon: ShieldCheck },
   { label: "Risks", href: "/risks", icon: AlertTriangle },
+  { label: "Incidents", href: "/incidents", icon: AlertOctagon },
   { label: "Audits", href: "/audits", icon: ClipboardList },
   { label: "Settings", href: "/settings", icon: Settings },
 ];

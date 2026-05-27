@@ -1,5 +1,5 @@
 from pydantic import BaseModel, Field, ConfigDict
-from typing import Optional, List
+from typing import Optional, List, Literal
 from datetime import date, datetime
 
 class UserRegister(BaseModel):
@@ -154,9 +154,9 @@ class ControlResponse(BaseModel):
 # Incident Schemas
 class IncidentCreate(BaseModel):
     model_config = ConfigDict(extra="forbid")
-    title: str
-    severity: str
-    status: Optional[str] = "Open"
+    title: str = Field(..., min_length=1)
+    severity: Literal["Critical", "High", "Medium", "Low"]
+    status: Optional[Literal["Open", "Contained", "Resolved", "Closed"]] = "Open"
     detected_at: Optional[datetime] = None
     resolved_at: Optional[datetime] = None
     description: Optional[str] = None
@@ -165,8 +165,8 @@ class IncidentCreate(BaseModel):
 class IncidentUpdate(BaseModel):
     model_config = ConfigDict(extra="forbid")
     title: Optional[str] = None
-    severity: Optional[str] = None
-    status: Optional[str] = None
+    severity: Optional[Literal["Critical", "High", "Medium", "Low"]] = None
+    status: Optional[Literal["Open", "Contained", "Resolved", "Closed"]] = None
     detected_at: Optional[datetime] = None
     resolved_at: Optional[datetime] = None
     description: Optional[str] = None
