@@ -15,5 +15,6 @@ else:
 
 limiter = Limiter(
     key_func=get_remote_address,
-    storage_uri=storage_uri
+    storage_uri=storage_uri,
+    default_limits=["100/minute"]
 )

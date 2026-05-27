@@ -34,7 +34,8 @@ router = APIRouter()
 logger = logging.getLogger("grc")
 
 @router.post("/register", response_model=RegisterResponse, status_code=status.HTTP_201_CREATED)
-def register(body: UserRegister, db: Session = Depends(get_db)):
+@limiter.limit("60/minute")
+def register(request: Request, body: UserRegister, db: Session = Depends(get_db)):
     # Check if user already exists
     existing_user = db.query(User).filter(User.email == body.email).first()
     if existing_user:
@@ -82,7 +83,8 @@ def register(body: UserRegister, db: Session = Depends(get_db)):
     )
 
 @router.post("/mfa/enable")
-def mfa_enable(body: MFAEnableRequest, db: Session = Depends(get_db)):
+@limiter.limit("60/minute")
+def mfa_enable(request: Request, body: MFAEnableRequest, db: Session = Depends(get_db)):
     user = db.query(User).filter(User.email == body.email).first()
     if not user:
         raise HTTPException(
@@ -114,7 +116,8 @@ def mfa_enable(body: MFAEnableRequest, db: Session = Depends(get_db)):
     }
 
 @router.post("/login")
-def login(body: UserLogin, db: Session = Depends(get_db)):
+@limiter.limit("10/minute")
+def login(request: Request, body: UserLogin, db: Session = Depends(get_db)):
     user = db.query(User).filter(User.email == body.email).first()
     if not user or not verify_password(body.password, user.hashed_password):
         raise HTTPException(
@@ -133,7 +136,8 @@ def login(body: UserLogin, db: Session = Depends(get_db)):
     }
 
 @router.post("/login/verify", response_model=TokenResponse)
-def login_verify(body: MFALoginVerify, db: Session = Depends(get_db)):
+@limiter.limit("10/minute")
+def login_verify(request: Request, body: MFALoginVerify, db: Session = Depends(get_db)):
     payload = decode_token(body.temp_token)
     if not payload or payload.get("type") != "temp_mfa" or not payload.get("mfa_pending"):
         raise HTTPException(
@@ -206,7 +210,8 @@ def login_verify(body: MFALoginVerify, db: Session = Depends(get_db)):
     )
 
 @router.post("/refresh")
-def refresh(body: dict, db: Session = Depends(get_db)):
+@limiter.limit("60/minute")
+def refresh(request: Request, body: dict, db: Session = Depends(get_db)):
     refresh_token = body.get("refresh_token")
     if not refresh_token:
         raise HTTPException(
@@ -275,7 +280,8 @@ def refresh(body: dict, db: Session = Depends(get_db)):
     }
 
 @router.post("/logout")
-def logout(body: dict, db: Session = Depends(get_db)):
+@limiter.limit("60/minute")
+def logout(request: Request, body: dict, db: Session = Depends(get_db)):
     refresh_token = body.get("refresh_token")
     if refresh_token:
         rf_hash = hash_token(refresh_token)
@@ -314,7 +320,8 @@ def password_reset_request(request: Request, body: PasswordResetRequest, db: Ses
     }
 
 @router.post("/password-reset/confirm")
-def password_reset_confirm(body: PasswordResetConfirm, db: Session = Depends(get_db)):
+@limiter.limit("60/minute")
+def password_reset_confirm(request: Request, body: PasswordResetConfirm, db: Session = Depends(get_db)):
     payload = decode_token(body.token)
     if not payload or payload.get("type") != "reset":
         raise HTTPException(

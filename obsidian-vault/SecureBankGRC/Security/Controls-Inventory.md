@@ -12,7 +12,7 @@ Detailed implementation status of the 15 core security controls from the **Secur
 ## Inventory
 
 ### 1. CORS Configuration
-- **Status**: Gated (DEV vs PROD env config)
+- **Status**: Implemented
 - **Layer**: API Middleware
 - **Detail**: Restrict origins to `https://myapp.com` and `https://www.myapp.com` in production, allow `localhost:3000` via `DEV_ORIGINS` toggle.
 
@@ -52,7 +52,7 @@ Detailed implementation status of the 15 core security controls from the **Secur
 - **Detail**: Limit to 3 requests per email per hour using SlowAPI. Standardize generic anti-enumeration response.
 
 ### 9. Generic Error Messages & Server logging
-- **Status**: Proposed
+- **Status**: Implemented
 - **Layer**: API Gateway
 - **Detail**: Global exception handlers hiding detailed system tracebacks. Detailed errors logged server-side only.
 
@@ -62,12 +62,12 @@ Detailed implementation status of the 15 core security controls from the **Secur
 - **Detail**: 7 days access token expiry. Hashed refresh tokens with rotation and replay detection.
 
 ### 11. Endpoint Rate Limiting
-- **Status**: Proposed
+- **Status**: Implemented
 - **Layer**: Network / Gateway
 - **Detail**: 100 req/min for public GET, 60 req/min for auth actions, 10 req/min for login.
 
 ### 12. Input Validation & Sanitization
-- **Status**: Proposed
+- **Status**: Implemented
 - **Layer**: API Gateway / DB
 - **Detail**: Pydantic `extra = 'forbid'`, escape free text, server-side MIME check on file uploads.
 
@@ -77,7 +77,7 @@ Detailed implementation status of the 15 core security controls from the **Secur
 - **Detail**: Environment variable injection, protect client bundles (no secrets in VITE_ variables).
 
 ### 14. DDoS Protection & Body Limits
-- **Status**: Proposed
+- **Status**: Implemented
 - **Layer**: API Middleware / Network
 - **Detail**: Reject request bodies > 1MB via `PayloadSizeLimit` middleware.
 

@@ -1,5 +1,6 @@
 from pydantic import BaseModel, Field, ConfigDict
 from typing import Optional, List
+from datetime import date, datetime
 
 class UserRegister(BaseModel):
     model_config = ConfigDict(extra="forbid")
@@ -28,6 +29,7 @@ class MFALoginVerify(BaseModel):
     code: str
 
 class TokenResponse(BaseModel):
+    model_config = ConfigDict(extra="forbid")
     access_token: str
     refresh_token: str
     token_type: str = "bearer"
@@ -48,7 +50,7 @@ class PasswordResetConfirm(BaseModel):
     new_password: str = Field(..., min_length=8)
 
 class UserResponse(BaseModel):
-    model_config = ConfigDict(from_attributes=True)
+    model_config = ConfigDict(from_attributes=True, extra="forbid")
     
     id: int
     email: str
@@ -57,9 +59,310 @@ class UserResponse(BaseModel):
     mfa_enabled: bool
 
 class RegisterResponse(BaseModel):
+    model_config = ConfigDict(extra="forbid")
     message: str
     email: str
     tenant_id: str
     role: str
     otp_secret: str
     otp_uri: str
+
+
+# --- GRC Business Entity Schemas (Phase 05) ---
+
+# Risk Schemas
+class RiskCreate(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+    risk_id: str
+    asset: str
+    threat: str
+    likelihood: int = Field(..., ge=1, le=5)
+    impact: int = Field(..., ge=1, le=5)
+    mitigation: Optional[str] = None
+    status: Optional[str] = "Open"
+    owner: Optional[str] = None
+    department: Optional[str] = None
+    review_date: Optional[date] = None
+
+class RiskUpdate(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+    asset: Optional[str] = None
+    threat: Optional[str] = None
+    likelihood: Optional[int] = Field(None, ge=1, le=5)
+    impact: Optional[int] = Field(None, ge=1, le=5)
+    mitigation: Optional[str] = None
+    status: Optional[str] = None
+    owner: Optional[str] = None
+    department: Optional[str] = None
+    review_date: Optional[date] = None
+
+class RiskResponse(BaseModel):
+    model_config = ConfigDict(from_attributes=True, extra="forbid")
+    risk_id: str
+    tenant_id: str
+    asset: str
+    threat: str
+    likelihood: int
+    impact: int
+    risk_score: int
+    severity: str
+    mitigation: Optional[str] = None
+    status: str
+    owner: Optional[str] = None
+    department: Optional[str] = None
+    review_date: Optional[date] = None
+    created_at: datetime
+    updated_at: datetime
+
+
+# Control Schemas
+class ControlCreate(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+    control_id: str
+    framework: str
+    description: str
+    company_control: Optional[str] = None
+    status: Optional[str] = "Not Started"
+    owner: Optional[str] = None
+    evidence_required: Optional[str] = None
+    last_reviewed: Optional[date] = None
+
+class ControlUpdate(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+    framework: Optional[str] = None
+    description: Optional[str] = None
+    company_control: Optional[str] = None
+    status: Optional[str] = None
+    owner: Optional[str] = None
+    evidence_required: Optional[str] = None
+    last_reviewed: Optional[date] = None
+
+class ControlResponse(BaseModel):
+    model_config = ConfigDict(from_attributes=True, extra="forbid")
+    control_id: str
+    tenant_id: str
+    framework: str
+    description: str
+    company_control: Optional[str] = None
+    status: str
+    owner: Optional[str] = None
+    evidence_required: Optional[str] = None
+    last_reviewed: Optional[date] = None
+    created_at: datetime
+
+
+# Incident Schemas
+class IncidentCreate(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+    title: str
+    severity: str
+    status: Optional[str] = "Open"
+    detected_at: Optional[datetime] = None
+    resolved_at: Optional[datetime] = None
+    description: Optional[str] = None
+    assigned_to: Optional[str] = None
+
+class IncidentUpdate(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+    title: Optional[str] = None
+    severity: Optional[str] = None
+    status: Optional[str] = None
+    detected_at: Optional[datetime] = None
+    resolved_at: Optional[datetime] = None
+    description: Optional[str] = None
+    assigned_to: Optional[str] = None
+
+class IncidentResponse(BaseModel):
+    model_config = ConfigDict(from_attributes=True, extra="forbid")
+    incident_id: int
+    tenant_id: str
+    title: str
+    severity: str
+    status: str
+    detected_at: datetime
+    resolved_at: Optional[datetime] = None
+    mttd_minutes: Optional[int] = None
+    mttr_minutes: Optional[int] = None
+    description: Optional[str] = None
+    assigned_to: Optional[str] = None
+    created_at: datetime
+
+
+# Vendor Schemas
+class VendorCreate(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+    name: str
+    status: Optional[str] = "Pending"
+    score: Optional[int] = None
+    risk_tier: Optional[str] = None
+    contact_email: Optional[str] = None
+
+class VendorUpdate(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+    name: Optional[str] = None
+    status: Optional[str] = None
+    score: Optional[int] = None
+    risk_tier: Optional[str] = None
+    contact_email: Optional[str] = None
+
+class VendorResponse(BaseModel):
+    model_config = ConfigDict(from_attributes=True, extra="forbid")
+    id: int
+    tenant_id: str
+    name: str
+    status: str
+    score: Optional[int] = None
+    risk_tier: Optional[str] = None
+    contact_email: Optional[str] = None
+    created_at: datetime
+    updated_at: datetime
+
+
+# Vendor Assessment Schemas
+class VendorAssessmentCreate(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+    vendor_id: int
+    assessed_by: Optional[str] = None
+    assessment_date: Optional[datetime] = None
+    score: Optional[int] = None
+    status: Optional[str] = "Draft"
+    questionnaire_data: Optional[str] = None
+
+class VendorAssessmentUpdate(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+    vendor_id: Optional[int] = None
+    assessed_by: Optional[str] = None
+    assessment_date: Optional[datetime] = None
+    score: Optional[int] = None
+    status: Optional[str] = None
+    questionnaire_data: Optional[str] = None
+
+class VendorAssessmentResponse(BaseModel):
+    model_config = ConfigDict(from_attributes=True, extra="forbid")
+    id: int
+    tenant_id: str
+    vendor_id: int
+    assessed_by: Optional[str] = None
+    assessment_date: Optional[datetime] = None
+    score: Optional[int] = None
+    status: str
+    questionnaire_data: Optional[str] = None
+    created_at: datetime
+    updated_at: datetime
+
+
+# Audit Finding Schemas
+class AuditFindingCreate(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+    finding_id: str
+    title: str
+    severity: str
+    control_id: Optional[str] = None
+    recommendation: Optional[str] = None
+    status: Optional[str] = "Open"
+
+class AuditFindingUpdate(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+    title: Optional[str] = None
+    severity: Optional[str] = None
+    control_id: Optional[str] = None
+    recommendation: Optional[str] = None
+    status: Optional[str] = None
+
+class AuditFindingResponse(BaseModel):
+    model_config = ConfigDict(from_attributes=True, extra="forbid")
+    finding_id: str
+    tenant_id: str
+    title: str
+    severity: str
+    control_id: Optional[str] = None
+    recommendation: Optional[str] = None
+    status: str
+    detected_at: datetime
+    created_at: datetime
+
+
+# CAPA Schemas
+class CapaCreate(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+    capa_id: str
+    finding_id: str
+    title: str
+    root_cause: Optional[str] = None
+    action: str
+    owner: Optional[str] = None
+    due_date: Optional[date] = None
+    status: Optional[str] = "Open"
+
+class CapaUpdate(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+    finding_id: Optional[str] = None
+    title: Optional[str] = None
+    root_cause: Optional[str] = None
+    action: Optional[str] = None
+    owner: Optional[str] = None
+    due_date: Optional[date] = None
+    status: Optional[str] = None
+
+class CapaResponse(BaseModel):
+    model_config = ConfigDict(from_attributes=True, extra="forbid")
+    capa_id: str
+    tenant_id: str
+    finding_id: str
+    title: str
+    root_cause: Optional[str] = None
+    action: str
+    owner: Optional[str] = None
+    due_date: Optional[date] = None
+    status: str
+    created_at: datetime
+
+
+# Evidence Schemas
+class EvidenceCreate(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+    evidence_id: str
+    control_id: str
+    file_name: str
+    file_path: str
+    uploaded_by: str
+
+class EvidenceResponse(BaseModel):
+    model_config = ConfigDict(from_attributes=True, extra="forbid")
+    evidence_id: str
+    tenant_id: str
+    control_id: str
+    file_name: str
+    file_path: str
+    uploaded_by: str
+    uploaded_at: datetime
+
+
+# Access Review Schemas
+class AccessReviewCreate(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+    reviewer: str
+    user_email: str
+    status: Optional[str] = "Open"
+    decision: Optional[str] = None
+    justification: Optional[str] = None
+
+class AccessReviewUpdate(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+    reviewer: Optional[str] = None
+    user_email: Optional[str] = None
+    status: Optional[str] = None
+    decision: Optional[str] = None
+    justification: Optional[str] = None
+
+class AccessReviewResponse(BaseModel):
+    model_config = ConfigDict(from_attributes=True, extra="forbid")
+    id: int
+    tenant_id: str
+    reviewer: str
+    user_email: str
+    status: str
+    decision: Optional[str] = None
+    justification: Optional[str] = None
+    reviewed_at: Optional[datetime] = None
+    created_at: datetime

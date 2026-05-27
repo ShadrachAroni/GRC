@@ -1,6 +1,7 @@
-from fastapi import FastAPI, Request
+from fastapi import FastAPI, Request, status
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse, RedirectResponse
+from starlette.middleware.base import BaseHTTPMiddleware
 from api.config import settings
 from api.logger import logger
 from api.routers import risks, controls, incidents, vendors, audit, auth
@@ -24,6 +25,36 @@ app = FastAPI(
 app.state.limiter = limiter
 app.add_exception_handler(RateLimitExceeded, _rate_limit_exceeded_handler)
 
+# Custom Middlewares (Phase 05)
+
+class ContentLengthLimitMiddleware(BaseHTTPMiddleware):
+    async def dispatch(self, request: Request, call_next):
+        if request.method in ("POST", "PUT", "PATCH"):
+            content_length = request.headers.get("content-length")
+            if content_length is not None:
+                try:
+                    if int(content_length) > 1024 * 1024:  # 1MB
+                        return JSONResponse(
+                            status_code=status.HTTP_413_CONTENT_TOO_LARGE,
+                            content={"detail": "Payload too large. Maximum size allowed is 1MB."}
+                        )
+                except ValueError:
+                    return JSONResponse(
+                        status_code=status.HTTP_400_BAD_REQUEST,
+                        content={"detail": "Invalid Content-Length header"}
+                    )
+        return await call_next(request)
+
+class SecurityHeadersMiddleware(BaseHTTPMiddleware):
+    async def dispatch(self, request: Request, call_next):
+        response = await call_next(request)
+        response.headers["Strict-Transport-Security"] = "max-age=63072000; includeSubDomains; preload"
+        response.headers["Content-Security-Policy"] = "default-src 'self'; frame-ancestors 'none';"
+        response.headers["X-Frame-Options"] = "DENY"
+        response.headers["X-Content-Type-Options"] = "nosniff"
+        response.headers["X-XSS-Protection"] = "1; mode=block"
+        return response
+
 # Global CORS Configuration (Security Control 1)
 app.add_middleware(
     CORSMiddleware,
@@ -32,6 +63,9 @@ app.add_middleware(
     allow_methods=["GET", "POST", "PUT", "PATCH", "DELETE"],
     allow_headers=["Authorization", "Content-Type"],
 )
+
+app.add_middleware(ContentLengthLimitMiddleware)
+app.add_middleware(SecurityHeadersMiddleware)
 
 # Global Request/Response Logger
 @app.middleware("http")
@@ -65,8 +99,10 @@ app.include_router(audit.router, prefix="/api/audit", tags=["Audit"])
 def root_redirect():
     return RedirectResponse(url="/docs")
 
-
 @app.get("/health")
 def health_check():
     return {"status": "healthy", "environment": settings.ENVIRONMENT}
 
+@app.get("/api/test-error", include_in_schema=False)
+def trigger_error():
+    raise ValueError("Test internal error")
