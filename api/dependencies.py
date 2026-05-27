@@ -1,14 +1,16 @@
-from fastapi import Depends, HTTPException, status
+from fastapi import Depends, HTTPException, status, Request
 from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
 from sqlalchemy.orm import Session
 from api.database import get_db
 from api.models import User
 from api.auth_utils import decode_token
+from api.audit_logging import current_user_email_ctx, current_user_tenant_ctx, current_user_ip_ctx
 from typing import List
 
 security = HTTPBearer(auto_error=False)
 
 def get_current_user(
+    request: Request,
     credentials: HTTPAuthorizationCredentials = Depends(security),
     db: Session = Depends(get_db),
 ) -> User:
@@ -44,7 +46,22 @@ def get_current_user(
             headers={"WWW-Authenticate": "Bearer"},
         )
 
+    # Set context variables for auditing
+    current_user_email_ctx.set(user.email)
+    current_user_tenant_ctx.set(user.tenant_id)
+    
+    ip = None
+    if request and request.client:
+        ip = request.client.host
+    current_user_ip_ctx.set(ip)
+
+    # Attach to db session object to guarantee cross-thread propagation
+    db._user_email = user.email
+    db._tenant_id = user.tenant_id
+    db._client_ip = ip
+
     return user
+
 
 def get_tenant_id(current_user: User = Depends(get_current_user)) -> str:
     return current_user.tenant_id

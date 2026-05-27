@@ -66,7 +66,7 @@ def test_incident_input_validation():
     assert response.status_code == 422
 
 def test_incident_crud_and_durations(db_session: Session):
-    token = create_authenticated_user("analyst_inc2@securebank.com", "GRC Analyst")
+    token = create_authenticated_user("admin_inc2@securebank.com", "Administrator")
     headers = {"Authorization": f"Bearer {token}"}
     
     detected_time = datetime.utcnow() - timedelta(minutes=45)
