@@ -1,352 +1,576 @@
 "use client";
 
-import React, { useState } from "react";
+import React from "react";
+import { useQuery } from "@tanstack/react-query";
+import { useTranslation } from "react-i18next";
 import { PageLayout } from "@/components/templates/PageLayout";
 import { Button } from "@/components/atoms/Button";
 import { Badge } from "@/components/atoms/Badge";
-import { Input } from "@/components/atoms/Input";
-import { Checkbox } from "@/components/atoms/Checkbox";
+import { dashboardService } from "@/services/dashboard";
+import { useAuthStore } from "@/context/AuthStore";
+import { cn } from "@/utils/cn";
+import {
+  ResponsiveContainer,
+  BarChart,
+  Bar,
+  XAxis,
+  YAxis,
+  CartesianGrid,
+  Tooltip,
+  Legend,
+  PieChart,
+  Pie,
+  Cell,
+} from "recharts";
 import {
   Shield,
-  Send,
-  Trash2,
   AlertTriangle,
-  CheckCircle,
-  Info,
-  Terminal,
+  CheckCircle2,
+  Clock,
+  Download,
+  TrendingUp,
+  Activity,
+  FileText,
+  AlertCircle,
 } from "lucide-react";
 
+// Safe helper function to resolve severity color mapping without prototype-vulnerable bracket lookup
+const getSeverityColor = (severity: string): string => {
+  switch (severity) {
+    case "Critical":
+      return "#E11D48"; // rose-600
+    case "High":
+      return "#F97316";     // orange-500
+    case "Medium":
+      return "#F59E0B";   // amber-500
+    case "Low":
+      return "#10B981";      // emerald-500
+    default:
+      return "#64748B";      // slate-500
+  }
+};
+
 export default function Home() {
-  const [clickCount, setClickCount] = useState(0);
-  const [buttonLoading, setButtonLoading] = useState(false);
-  const [inputText, setInputText] = useState("");
-  const [inputError, setInputError] = useState("");
-  const [termsChecked, setTermsChecked] = useState(false);
-  const [termsError, setTermsError] = useState("");
+  const { user } = useAuthStore();
+  const { t } = useTranslation();
 
-  const triggerLoader = () => {
-    setButtonLoading(true);
-    setTimeout(() => {
-      setButtonLoading(false);
-      setClickCount((c) => c + 1);
-    }, 2000);
-  };
+  // Fetch Dashboard Summary
+  const { data: summary, isLoading, isError, error } = useQuery({
+    queryKey: ["dashboard-summary"],
+    queryFn: () => dashboardService.getSummary(),
+    refetchInterval: 30000, // auto-refresh every 30s
+  });
 
-  const handleFormSubmit = (e: React.FormEvent) => {
-    e.preventDefault();
-    let valid = true;
-
-    if (!inputText) {
-      setInputError("This field is required.");
-      valid = false;
-    } else {
-      setInputError("");
-    }
-
-    if (!termsChecked) {
-      setTermsError("You must accept the terms.");
-      valid = false;
-    } else {
-      setTermsError("");
-    }
-
-    if (valid) {
-      alert("Form submitted successfully!");
+  // Action: Export Risks Register (CSV)
+  const handleExportRisks = async () => {
+    try {
+      const blob = await dashboardService.downloadRisksCsv();
+      const url = window.URL.createObjectURL(blob);
+      const link = document.createElement("a");
+      link.href = url;
+      link.setAttribute("download", "risk_register_export.csv");
+      document.body.appendChild(link);
+      link.click();
+      link.parentNode?.removeChild(link);
+    } catch (err: any) {
+      alert(err.message || "Failed to download risks CSV");
     }
   };
 
-  const breadcrumbs = [
-    { label: "Design System", href: "/" },
-    { label: "Component Showcase" },
-  ];
+  // Action: Export CAPA Tracker (CSV)
+  const handleExportCapas = async () => {
+    try {
+      const blob = await dashboardService.downloadCapasCsv();
+      const url = window.URL.createObjectURL(blob);
+      const link = document.createElement("a");
+      link.href = url;
+      link.setAttribute("download", "capa_tracker_export.csv");
+      document.body.appendChild(link);
+      link.click();
+      link.parentNode?.removeChild(link);
+    } catch (err: any) {
+      alert(err.message || "Failed to download CAPAs CSV");
+    }
+  };
+
+  const breadcrumbs = [{ label: t("dashboard.title"), href: "/" }];
+
+  if (isLoading) {
+    return (
+      <PageLayout breadcrumbs={breadcrumbs} title={t("dashboard.title")}>
+        <div className="py-32 flex flex-col items-center justify-center gap-4">
+          <div className="w-12 h-12 border-4 border-primary dark:border-white border-t-transparent rounded-full animate-spin" />
+          <p className="text-body-md text-secondary dark:text-slate-405 font-medium animate-pulse">
+            {t("dashboard.loading")}
+          </p>
+        </div>
+      </PageLayout>
+    );
+  }
+
+  if (isError || !summary) {
+    return (
+      <PageLayout breadcrumbs={breadcrumbs} title={t("dashboard.title")}>
+        <div className="py-20 text-center max-w-md mx-auto space-y-4">
+          <div className="w-16 h-16 bg-rose-500/10 text-danger-rose dark:text-rose-400 rounded-full flex items-center justify-center mx-auto border border-rose-500/20 shadow-inner">
+            <AlertTriangle className="w-8 h-8" />
+          </div>
+          <h3 className="text-headline-sm font-bold text-primary dark:text-slate-100">
+            {t("dashboard.error.title")}
+          </h3>
+          <p className="text-body-sm text-secondary dark:text-slate-400">
+            {(error as any)?.message || t("dashboard.error.default")}
+          </p>
+          <Button onClick={() => window.location.reload()} variant="primary">
+            {t("dashboard.error.retry")}
+          </Button>
+        </div>
+      </PageLayout>
+    );
+  }
+
+  // Format Recharts Data (with translated severity names for tooltip display)
+  const riskSeverityData = Object.entries(summary.risks_by_severity || {})
+    .map(([name, value]) => ({
+      name: t(`findings.severity.${name.toLowerCase()}`),
+      rawName: name,
+      value,
+    }))
+    .filter((item) => item.value > 0);
+
+  const complianceFrameworkData = Object.entries(summary.controls_by_framework || {}).map(
+    ([framework, metrics]) => ({
+      name: framework === "SOC2" ? "SOC 2" : framework === "ISO27001" ? "ISO 27001" : framework,
+      complianceScore: metrics.compliance_score,
+      implemented: metrics.implemented,
+      total: metrics.total,
+    })
+  );
+
+  const incidentStatusData = Object.entries(summary.incidents_by_status || {})
+    .map(([name, value]) => ({ name, value }))
+    .filter((item) => item.value > 0);
+
+  // SLA MTTR Alert Level
+  const isHighMttr = summary.avg_mttr_minutes > 120; // SLA MTTR is typically 2 hours
 
   return (
-    <PageLayout breadcrumbs={breadcrumbs} title="Design System & Styleguide">
-      <div className="space-y-12">
-        {/* Intro */}
-        <section className="bg-white dark:bg-slate-900 border border-surface-border dark:border-slate-800 rounded-lg p-6 shadow-sm">
-          <h2 className="text-headline-sm font-bold mb-2 text-primary dark:text-slate-100 flex items-center gap-2">
-            <Shield className="w-5 h-5 text-success-emerald" />
-            SecureBank GRC Design System
-          </h2>
-          <p className="text-body-md text-secondary dark:text-slate-400">
-            Welcome to the component styleguide for the SecureBank Governance, Risk, and Compliance system.
-            This showcase displays the custom elements implemented in Phase 02, including responsive grid rules, semantic color contrast compliance, and full keyboard/screen-reader accessibility.
-          </p>
-        </section>
-
-        {/* Core Colors & Tokens */}
-        <section className="space-y-6">
-          <h3 className="text-headline-sm font-bold text-primary dark:text-slate-100 border-b border-surface-border dark:border-slate-800 pb-2">
-            1. Core Color System
-          </h3>
-          <div className="grid grid-cols-2 md:grid-cols-5 gap-4">
-            <div className="p-4 rounded-lg bg-white dark:bg-slate-900 border border-surface-border dark:border-slate-800 shadow-sm text-left">
-              <div className="w-full h-12 rounded bg-[#0F172A] border border-slate-200 dark:border-slate-700 mb-2" />
-              <p className="text-body-sm font-bold text-primary dark:text-slate-200">Primary (Navy)</p>
-              <code className="text-data-mono text-secondary dark:text-slate-400">#0F172A</code>
-            </div>
-            <div className="p-4 rounded-lg bg-white dark:bg-slate-900 border border-surface-border dark:border-slate-800 shadow-sm text-left">
-              <div className="w-full h-12 rounded bg-[#334155] border border-slate-200 dark:border-slate-700 mb-2" />
-              <p className="text-body-sm font-bold text-primary dark:text-slate-200">Secondary (Slate)</p>
-              <code className="text-data-mono text-secondary dark:text-slate-400">#334155</code>
-            </div>
-            <div className="p-4 rounded-lg bg-white dark:bg-slate-900 border border-surface-border dark:border-slate-800 shadow-sm text-left">
-              <div className="w-full h-12 rounded bg-[#059669] mb-2" />
-              <p className="text-body-sm font-bold text-primary dark:text-slate-200">Success</p>
-              <code className="text-data-mono text-secondary dark:text-slate-400">#059669</code>
-            </div>
-            <div className="p-4 rounded-lg bg-white dark:bg-slate-900 border border-surface-border dark:border-slate-800 shadow-sm text-left">
-              <div className="w-full h-12 rounded bg-[#D97706] mb-2" />
-              <p className="text-body-sm font-bold text-primary dark:text-slate-200">Warning</p>
-              <code className="text-data-mono text-secondary dark:text-slate-400">#D97706</code>
-            </div>
-            <div className="p-4 rounded-lg bg-white dark:bg-slate-900 border border-surface-border dark:border-slate-800 shadow-sm text-left">
-              <div className="w-full h-12 rounded bg-[#E11D48] mb-2" />
-              <p className="text-body-sm font-bold text-primary dark:text-slate-200">Danger</p>
-              <code className="text-data-mono text-secondary dark:text-slate-400">#E11D48</code>
-            </div>
-          </div>
-        </section>
-
-        {/* Buttons Section */}
-        <section className="space-y-6">
-          <h3 className="text-headline-sm font-bold text-primary dark:text-slate-100 border-b border-surface-border dark:border-slate-800 pb-2">
-            2. Button Atoms
-          </h3>
-          <div className="bg-white dark:bg-slate-900 border border-surface-border dark:border-slate-800 rounded-lg p-6 shadow-sm space-y-6">
-            {/* Variants */}
-            <div>
-              <h4 className="text-body-sm font-semibold text-secondary dark:text-slate-400 mb-3 uppercase tracking-wider">Variants</h4>
-              <div className="flex flex-wrap gap-4">
-                <Button variant="primary">Primary Button</Button>
-                <Button variant="secondary">Secondary Button</Button>
-                <Button variant="tertiary">Tertiary Button</Button>
-              </div>
-            </div>
-
-            {/* Sizes */}
-            <div>
-              <h4 className="text-body-sm font-semibold text-secondary dark:text-slate-400 mb-3 uppercase tracking-wider">Sizes</h4>
-              <div className="flex flex-wrap items-center gap-4">
-                <Button size="sm">Small (sm)</Button>
-                <Button size="md">Medium (md)</Button>
-                <Button size="lg">Large (lg)</Button>
-              </div>
-            </div>
-
-            {/* States & Icons */}
-            <div>
-              <h4 className="text-body-sm font-semibold text-secondary dark:text-slate-400 mb-3 uppercase tracking-wider">Interactive States & Icons</h4>
-              <div className="flex flex-wrap gap-4">
-                <Button onClick={() => setClickCount((c) => c + 1)}>
-                  Interactive Click Count: {clickCount}
-                </Button>
-                <Button isLoading={buttonLoading} onClick={triggerLoader}>
-                  {buttonLoading ? "Loading..." : "Trigger 2s Loader"}
-                </Button>
-                <Button leftIcon={<Send className="w-4 h-4" />}>
-                  With Left Icon
-                </Button>
-                <Button rightIcon={<Trash2 className="w-4 h-4" />} variant="secondary">
-                  Delete Action
-                </Button>
-                <Button disabled>Disabled State</Button>
-              </div>
-            </div>
-          </div>
-        </section>
-
-        {/* Badges Section */}
-        <section className="space-y-6">
-          <h3 className="text-headline-sm font-bold text-primary dark:text-slate-100 border-b border-surface-border dark:border-slate-800 pb-2">
-            3. Badge Atoms
-          </h3>
-          <div className="bg-white dark:bg-slate-900 border border-surface-border dark:border-slate-800 rounded-lg p-6 shadow-sm space-y-6">
-            {/* Semantic Badges */}
-            <div>
-              <h4 className="text-body-sm font-semibold text-secondary dark:text-slate-400 mb-3 uppercase tracking-wider">
-                Semantic Status (WCAG 2.1 AA compliant background tinting)
-              </h4>
-              <div className="flex flex-wrap gap-3">
-                <Badge variant="success">
-                  <CheckCircle className="w-3.5 h-3.5" />
-                  Success Passed
-                </Badge>
-                <Badge variant="warning">
-                  <AlertTriangle className="w-3.5 h-3.5" />
-                  Warning Pending
-                </Badge>
-                <Badge variant="danger">
-                  <AlertTriangle className="w-3.5 h-3.5" />
-                  Danger Failed
-                </Badge>
-                <Badge variant="info">
-                  <Info className="w-3.5 h-3.5" />
-                  Info Standard
-                </Badge>
-              </div>
-            </div>
-
-            {/* Risk Severities */}
-            <div>
-              <h4 className="text-body-sm font-semibold text-secondary dark:text-slate-400 mb-3 uppercase tracking-wider">
-                Risk Severities
-              </h4>
-              <div className="flex flex-wrap gap-3">
-                <Badge variant="critical">Critical Severity</Badge>
-                <Badge variant="high">High Severity</Badge>
-                <Badge variant="medium">Medium Severity</Badge>
-                <Badge variant="low">Low Severity</Badge>
-              </div>
-            </div>
-
-            {/* Sizes */}
-            <div>
-              <h4 className="text-body-sm font-semibold text-secondary dark:text-slate-400 mb-3 uppercase tracking-wider">
-                Badge Sizes
-              </h4>
-              <div className="flex flex-wrap items-center gap-3">
-                <Badge size="sm" variant="success">small success</Badge>
-                <Badge size="md" variant="success">medium success</Badge>
-                <Badge size="sm" variant="critical">small critical</Badge>
-                <Badge size="md" variant="critical">medium critical</Badge>
-              </div>
-            </div>
-          </div>
-        </section>
-
-        {/* Form Inputs & Checkbox Showcase */}
-        <section className="space-y-6">
-          <h3 className="text-headline-sm font-bold text-primary dark:text-slate-100 border-b border-surface-border dark:border-slate-800 pb-2">
-            4. Form Atoms (Input & Checkbox)
-          </h3>
-          <div className="bg-white dark:bg-slate-900 border border-surface-border dark:border-slate-800 rounded-lg p-6 shadow-sm">
-            <form onSubmit={handleFormSubmit} className="max-w-md space-y-6">
-              <h4 className="text-body-md font-semibold text-primary dark:text-slate-200">Interactive Form Demo</h4>
-              
-              <Input
-                label="Compliance Asset Name"
-                placeholder="e.g. Core Database Server"
-                value={inputText}
-                onChange={(e) => {
-                  setInputText(e.target.value);
-                  if (e.target.value) setInputError("");
-                }}
-                error={inputError}
-                helperText="Enter the official unique identifier for the compliance asset."
-              />
-
-              <Checkbox
-                label="I accept that this asset falls under SOX compliance standards."
-                checked={termsChecked}
-                onChange={(e) => {
-                  setTermsChecked(e.target.checked);
-                  if (e.target.checked) setTermsError("");
-                }}
-                error={termsError}
-              />
-
-              <div className="flex items-center gap-4">
-                <Button type="submit">Submit Form</Button>
-                <Button
-                  type="button"
-                  variant="secondary"
-                  onClick={() => {
-                    setInputText("");
-                    setInputError("");
-                    setTermsChecked(false);
-                    setTermsError("");
-                  }}
-                >
-                  Reset States
-                </Button>
-              </div>
-            </form>
-
-            <hr className="my-6 border-surface-border dark:border-slate-800" />
-
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-              {/* Static Input Showcase */}
-              <div className="space-y-4">
-                <h5 className="text-body-sm font-semibold text-secondary dark:text-slate-400 uppercase tracking-wider">Input States</h5>
-                <Input label="Default Empty State" placeholder="Enter text..." />
-                <Input label="Disabled Input" placeholder="Cannot edit" disabled value="Locked Information" />
-                <Input label="Validation Error Example" placeholder="Invalid entry" error="Format must be in IP CIDR notation (e.g., 10.0.0.0/24)" />
-              </div>
-
-              {/* Static Checkbox Showcase */}
-              <div className="space-y-4">
-                <h5 className="text-body-sm font-semibold text-secondary dark:text-slate-400 uppercase tracking-wider">Checkbox States</h5>
-                <Checkbox label="Default Unchecked State" />
-                <Checkbox label="Default Checked State" defaultChecked />
-                <Checkbox label="Disabled Unchecked State" disabled />
-                <Checkbox label="Disabled Checked State" disabled defaultChecked />
-                <Checkbox label="Error Checkbox Example" error="Approval validation required to continue." />
-              </div>
-            </div>
-          </div>
-        </section>
-
-        {/* Tabular Numerical Data (Font Monospace Check) */}
-        <section className="space-y-6">
-          <h3 className="text-headline-sm font-bold text-primary dark:text-slate-100 border-b border-surface-border dark:border-slate-800 pb-2">
-            5. Data Density & Typography Monospace
-          </h3>
-          <div className="bg-white dark:bg-slate-900 border border-surface-border dark:border-slate-800 rounded-lg shadow-sm overflow-hidden">
-            <div className="p-4 bg-slate-50 dark:bg-slate-800/40 border-b border-surface-border dark:border-slate-800 flex items-center justify-between">
-              <span className="text-body-sm font-semibold text-secondary dark:text-slate-300">
-                Sample Compliance Metrics (Tabular Number Alignment Check)
+    <PageLayout breadcrumbs={breadcrumbs} title={t("dashboard.title")}>
+      <div className="space-y-8">
+        
+        {/* Header Summary & CSV Exports */}
+        <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 bg-gradient-to-r from-slate-50 to-slate-100 dark:from-slate-900/40 dark:to-slate-800/20 border border-surface-border dark:border-slate-800/80 p-5 rounded-xl shadow-sm">
+          <div>
+            <h2 className="text-headline-sm font-bold text-primary dark:text-slate-100 flex items-center gap-2">
+              <Shield className="w-5 h-5 text-indigo-500" />
+              {t("dashboard.healthOverview")}
+            </h2>
+            <p className="text-body-sm text-secondary dark:text-slate-400">
+              {t("dashboard.metricsForTenant")}{" "}
+              <span className="font-semibold text-primary dark:text-slate-200 font-mono">
+                {user?.tenant_id}
               </span>
-              <Badge variant="info">
-                <Terminal className="w-3.5 h-3.5" />
-                JetBrains Mono
-              </Badge>
+            </p>
+          </div>
+          <div className="flex flex-wrap gap-3">
+            <Button
+              variant="secondary"
+              leftIcon={<Download className="w-4 h-4" />}
+              onClick={handleExportRisks}
+              size="sm"
+            >
+              {t("dashboard.exportRisks")}
+            </Button>
+            <Button
+              variant="secondary"
+              leftIcon={<Download className="w-4 h-4" />}
+              onClick={handleExportCapas}
+              size="sm"
+            >
+              {t("dashboard.exportCapas")}
+            </Button>
+          </div>
+        </div>
+
+        {/* 4 KPI Summary Cards */}
+        <div className="grid grid-cols-1 md:grid-cols-4 gap-5">
+          
+          {/* Card 1: Compliance Score */}
+          <div className="bg-white dark:bg-slate-900 border border-surface-border dark:border-slate-800 rounded-xl p-5 shadow-sm hover:translate-y-[-2px] transition-all duration-300 flex items-center justify-between">
+            <div className="space-y-1">
+              <p className="text-body-xs font-semibold text-secondary dark:text-slate-400 uppercase tracking-wider">
+                {t("dashboard.overallCompliance")}
+              </p>
+              <p className="text-display-md font-bold text-primary dark:text-slate-100">
+                {summary.compliance_score}%
+              </p>
+              <p className="text-body-xs text-secondary dark:text-slate-400">
+                {t("dashboard.controlsActive", {
+                  implemented: summary.implemented_controls_count,
+                  total: summary.total_controls_count,
+                })}
+              </p>
             </div>
-            <div className="overflow-x-auto table-scroll">
-              <table className="w-full text-left border-collapse min-w-[500px]">
-                <thead>
-                  <tr className="border-b border-surface-border dark:border-slate-800 bg-slate-50 dark:bg-slate-900 text-label-caps text-secondary dark:text-slate-400">
-                    <th className="py-2.5 px-4">Control ID</th>
-                    <th className="py-2.5 px-4">Description</th>
-                    <th className="py-2.5 px-4">Status</th>
-                    <th className="py-2.5 px-4 text-right">Failure Rate</th>
-                    <th className="py-2.5 px-4 text-right">Score</th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-surface-border dark:divide-slate-800 text-body-sm text-primary dark:text-slate-200">
-                  <tr className="hover:bg-slate-50 dark:hover:bg-slate-800/40 transition-colors">
-                    <td className="py-2 px-4 font-mono font-medium text-data-mono">AC-01</td>
-                    <td className="py-2 px-4">Access Control Policy Review</td>
-                    <td className="py-2 px-4">
-                      <Badge size="sm" variant="success">compliant</Badge>
-                    </td>
-                    <td className="py-2 px-4 text-right font-mono text-data-mono">00.00%</td>
-                    <td className="py-2 px-4 text-right font-mono text-data-mono">100 / 100</td>
-                  </tr>
-                  <tr className="hover:bg-slate-50 dark:hover:bg-slate-800/40 transition-colors">
-                    <td className="py-2 px-4 font-mono font-medium text-data-mono">SI-03</td>
-                    <td className="py-2 px-4">Malicious Code Protection</td>
-                    <td className="py-2 px-4">
-                      <Badge size="sm" variant="warning">warning</Badge>
-                    </td>
-                    <td className="py-2 px-4 text-right font-mono text-data-mono">14.28%</td>
-                    <td className="py-2 px-4 text-right font-mono text-data-mono">85 / 100</td>
-                  </tr>
-                  <tr className="hover:bg-slate-50 dark:hover:bg-slate-800/40 transition-colors">
-                    <td className="py-2 px-4 font-mono font-medium text-data-mono">CM-08</td>
-                    <td className="py-2 px-4">Information System Component Inventory</td>
-                    <td className="py-2 px-4">
-                      <Badge size="sm" variant="danger">non-compliant</Badge>
-                    </td>
-                    <td className="py-2 px-4 text-right font-mono text-data-mono">48.95%</td>
-                    <td className="py-2 px-4 text-right font-mono text-data-mono">51 / 100</td>
-                  </tr>
-                </tbody>
-              </table>
+            <div className="relative w-16 h-16 flex-shrink-0">
+              <svg className="w-full h-full transform -rotate-90">
+                <circle
+                  cx="32"
+                  cy="32"
+                  r="28"
+                  className="stroke-slate-100 dark:stroke-slate-800 fill-none"
+                  strokeWidth="5"
+                />
+                <circle
+                  cx="32"
+                  cy="32"
+                  r="28"
+                  className="stroke-emerald-500 fill-none transition-all duration-500 ease-out"
+                  strokeWidth="5"
+                  strokeDasharray={`${2 * Math.PI * 28}`}
+                  strokeDashoffset={`${2 * Math.PI * 28 * (1 - summary.compliance_score / 100)}`}
+                />
+              </svg>
+              <div className="absolute inset-0 flex items-center justify-center">
+                <CheckCircle2 className="w-6 h-6 text-emerald-500" />
+              </div>
             </div>
           </div>
-        </section>
+
+          {/* Card 2: Risk Profile */}
+          <div className="bg-white dark:bg-slate-900 border border-surface-border dark:border-slate-800 rounded-xl p-5 shadow-sm hover:translate-y-[-2px] transition-all duration-300 flex items-center justify-between">
+            <div className="space-y-1">
+              <p className="text-body-xs font-semibold text-secondary dark:text-slate-400 uppercase tracking-wider">
+                {t("dashboard.activeRiskRegister")}
+              </p>
+              <p className="text-display-md font-bold text-primary dark:text-slate-100">
+                {summary.open_risks_count}{" "}
+                <span className="text-body-md font-normal text-secondary dark:text-slate-500">
+                  {t("dashboard.open")}
+                </span>
+              </p>
+              <div className="flex items-center gap-1.5 text-body-xs text-secondary dark:text-slate-400">
+                <TrendingUp className="w-3.5 h-3.5 text-orange-500" />
+                <span>{t("dashboard.avgRiskScore")}</span>
+                <span className="font-bold text-primary dark:text-slate-200 font-mono">
+                  {summary.avg_risk_score}
+                </span>
+              </div>
+            </div>
+            <div className="w-12 h-12 rounded-lg bg-orange-500/10 flex items-center justify-center text-orange-500 border border-orange-500/20">
+              <AlertTriangle className="w-6 h-6" />
+            </div>
+          </div>
+
+          {/* Card 3: Incidents Tracker */}
+          <div className="bg-white dark:bg-slate-900 border border-surface-border dark:border-slate-800 rounded-xl p-5 shadow-sm hover:translate-y-[-2px] transition-all duration-300 flex items-center justify-between">
+            <div className="space-y-1">
+              <p className="text-body-xs font-semibold text-secondary dark:text-slate-400 uppercase tracking-wider">
+                {t("dashboard.activeIncidents")}
+              </p>
+              <p className="text-display-md font-bold text-primary dark:text-slate-100">
+                {summary.active_incidents_count}{" "}
+                <span className="text-body-md font-normal text-secondary dark:text-slate-550">
+                  {t("dashboard.active")}
+                </span>
+              </p>
+              <p className="text-body-xs text-secondary dark:text-slate-400">
+                {t("dashboard.incidentsSummary", {
+                  open: summary.open_incidents_count,
+                  total: summary.total_incidents_count,
+                })}
+              </p>
+            </div>
+            <div className="w-12 h-12 rounded-lg bg-rose-500/10 flex items-center justify-center text-rose-500 border border-rose-500/20">
+              <Activity className="w-6 h-6 animate-pulse" />
+            </div>
+          </div>
+
+          {/* Card 4: CAPA Items */}
+          <div className="bg-white dark:bg-slate-900 border border-surface-border dark:border-slate-800 rounded-xl p-5 shadow-sm hover:translate-y-[-2px] transition-all duration-300 flex items-center justify-between">
+            <div className="space-y-1">
+              <p className="text-body-xs font-semibold text-secondary dark:text-slate-400 uppercase tracking-wider">
+                {t("dashboard.correctiveActions")}
+              </p>
+              <p className="text-display-md font-bold text-primary dark:text-slate-100">
+                {summary.open_capas_count}{" "}
+                <span className="text-body-md font-normal text-secondary dark:text-slate-500">
+                  {t("dashboard.open")}
+                </span>
+              </p>
+              <p className="text-body-xs text-secondary dark:text-slate-400">
+                {t("dashboard.capasSummary", {
+                  total: summary.total_capas_count,
+                  open: summary.open_findings_count,
+                })}
+              </p>
+            </div>
+            <div className="w-12 h-12 rounded-lg bg-indigo-500/10 flex items-center justify-center text-indigo-500 border border-indigo-500/20">
+              <FileText className="w-6 h-6" />
+            </div>
+          </div>
+
+        </div>
+
+        {/* Main Charts & Visualizations */}
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+          
+          {/* Chart 1: Framework Compliance Score (Bar Chart) */}
+          <div className="bg-white dark:bg-slate-900 border border-surface-border dark:border-slate-800 rounded-xl p-5 shadow-sm lg:col-span-2 flex flex-col justify-between min-h-[350px]">
+            <div>
+              <h3 className="text-body-sm font-bold text-primary dark:text-slate-200">
+                {t("dashboard.complianceByFramework")}
+              </h3>
+              <p className="text-body-xs text-secondary dark:text-slate-400 mb-4">
+                {t("dashboard.complianceDescription")}
+              </p>
+            </div>
+            <div className="h-60 w-full">
+              {complianceFrameworkData.length > 0 ? (
+                <ResponsiveContainer width="100%" height="100%">
+                  <BarChart data={complianceFrameworkData} margin={{ top: 10, right: 10, left: -20, bottom: 0 }}>
+                    <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#E2E8F0" className="dark:stroke-slate-800" />
+                    <XAxis dataKey="name" stroke="#94A3B8" fontSize={11} tickLine={false} />
+                    <YAxis domain={[0, 100]} stroke="#94A3B8" fontSize={11} tickLine={false} />
+                    <Tooltip
+                      cursor={{ fill: "rgba(148, 163, 184, 0.05)" }}
+                      contentStyle={{
+                        background: "#0F172A",
+                        border: "none",
+                        borderRadius: "8px",
+                        color: "#F8FAFC",
+                        fontSize: "12px",
+                      }}
+                    />
+                    <Legend verticalAlign="top" height={36} iconType="circle" fontSize={12} />
+                    <Bar
+                      dataKey="complianceScore"
+                      name={t("controls.stats.score")}
+                      fill="#6366F1"
+                      radius={[4, 4, 0, 0]}
+                      barSize={40}
+                    >
+                      {complianceFrameworkData.map((entry, idx) => {
+                        const score = entry.complianceScore;
+                        return (
+                          <Cell
+                            key={`cell-${idx}`}
+                            fill={score >= 70 ? "#10B981" : score >= 40 ? "#F59E0B" : "#EF4444"}
+                          />
+                        );
+                      })}
+                    </Bar>
+                  </BarChart>
+                </ResponsiveContainer>
+              ) : (
+                <div className="h-full flex items-center justify-center text-body-sm text-secondary dark:text-slate-500">
+                  {t("dashboard.noFrameworks")}
+                </div>
+              )}
+            </div>
+          </div>
+
+          {/* Chart 2: Risk Profile Severity Distribution (Donut Chart) */}
+          <div className="bg-white dark:bg-slate-900 border border-surface-border dark:border-slate-800 rounded-xl p-5 shadow-sm flex flex-col justify-between min-h-[350px]">
+            <div>
+              <h3 className="text-body-sm font-bold text-primary dark:text-slate-200">
+                {t("dashboard.riskSeverityProfile")}
+              </h3>
+              <p className="text-body-xs text-secondary dark:text-slate-400 mb-4">
+                {t("dashboard.riskSeverityDescription")}
+              </p>
+            </div>
+            <div className="h-44 w-full relative flex items-center justify-center">
+              {riskSeverityData.length > 0 ? (
+                <>
+                  <ResponsiveContainer width="100%" height="100%">
+                    <PieChart>
+                      <Pie
+                        data={riskSeverityData}
+                        cx="50%"
+                        cy="50%"
+                        innerRadius={55}
+                        outerRadius={75}
+                        paddingAngle={4}
+                        dataKey="value"
+                      >
+                        {riskSeverityData.map((entry, index) => (
+                          <Cell key={`cell-${index}`} fill={getSeverityColor(entry.rawName)} />
+                        ))}
+                      </Pie>
+                      <Tooltip
+                        contentStyle={{
+                          background: "#0F172A",
+                          border: "none",
+                          borderRadius: "8px",
+                          color: "#F8FAFC",
+                          fontSize: "12px",
+                        }}
+                      />
+                    </PieChart>
+                  </ResponsiveContainer>
+                  <div className="absolute flex flex-col items-center justify-center">
+                    <span className="text-body-xs font-semibold text-secondary dark:text-slate-400">
+                      {t("dashboard.totalRisks")}
+                    </span>
+                    <span className="text-headline-md font-bold text-primary dark:text-slate-100">
+                      {summary.total_risks_count}
+                    </span>
+                  </div>
+                </>
+              ) : (
+                <div className="h-full flex items-center justify-center text-body-sm text-secondary dark:text-slate-500">
+                  {t("dashboard.noRisks")}
+                </div>
+              )}
+            </div>
+            {/* Custom Legend */}
+            <div className="grid grid-cols-2 gap-2 mt-2 pt-2 border-t border-surface-border dark:border-slate-850 text-body-xs">
+              {Object.entries(summary.risks_by_severity || {}).map(([key, val]) => (
+                <div key={key} className="flex items-center gap-1.5">
+                  <span
+                    className="w-2.5 h-2.5 rounded-full flex-shrink-0"
+                    style={{ backgroundColor: getSeverityColor(key) }}
+                  />
+                  <span className="text-secondary dark:text-slate-400 truncate capitalize">
+                    {t(`findings.severity.${key.toLowerCase()}`)}:
+                  </span>
+                  <span className="font-semibold text-primary dark:text-slate-200 font-mono">
+                    {val}
+                  </span>
+                </div>
+              ))}
+            </div>
+          </div>
+
+        </div>
+
+        {/* Second Level Insights: Incidents MTTR/MTTD & Recent SLA Status */}
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+
+          {/* SLA Performance and MTTD / MTTR Metrics */}
+          <div className="bg-white dark:bg-slate-900 border border-surface-border dark:border-slate-800 rounded-xl p-5 shadow-sm lg:col-span-2 space-y-4">
+            <h3 className="text-body-sm font-bold text-primary dark:text-slate-200 flex items-center gap-2">
+              <Activity className="w-4 h-4 text-emerald-500" />
+              {t("dashboard.slaPerformance")}
+            </h3>
+            
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+              
+              {/* MTTD Card */}
+              <div className="bg-slate-50 dark:bg-slate-800/20 border border-surface-border dark:border-slate-800 p-4 rounded-lg flex items-center gap-4">
+                <div className="w-10 h-10 rounded-full bg-blue-500/10 flex items-center justify-center text-blue-500 flex-shrink-0">
+                  <Clock className="w-5 h-5" />
+                </div>
+                <div>
+                  <p className="text-body-xs font-semibold text-secondary dark:text-slate-400 uppercase">
+                    {t("dashboard.mttd")}
+                  </p>
+                  <p className="text-headline-sm font-bold text-primary dark:text-slate-100 font-mono text-data-mono">
+                    {summary.avg_mttd_minutes}{" "}
+                    <span className="text-body-xs font-normal text-secondary dark:text-slate-550">
+                      {t("dashboard.mins")}
+                    </span>
+                  </p>
+                </div>
+              </div>
+
+              {/* MTTR Card */}
+              <div className={cn(
+                "border p-4 rounded-lg flex items-center gap-4 transition-colors",
+                isHighMttr
+                  ? "bg-rose-500/5 border-rose-500/25"
+                  : "bg-slate-50 dark:bg-slate-800/20 border-surface-border dark:border-slate-800"
+              )}>
+                <div className={cn(
+                  "w-10 h-10 rounded-full flex items-center justify-center flex-shrink-0",
+                  isHighMttr
+                    ? "bg-rose-500/10 text-danger-rose"
+                    : "bg-emerald-500/10 text-emerald-500"
+                )}>
+                  <CheckCircle2 className="w-5 h-5" />
+                </div>
+                <div>
+                  <p className="text-body-xs font-semibold text-secondary dark:text-slate-400 uppercase">
+                    {t("dashboard.mttr")}
+                  </p>
+                  <p className="text-headline-sm font-bold text-primary dark:text-slate-100 font-mono text-data-mono flex items-center gap-1.5">
+                    {summary.avg_mttr_minutes}{" "}
+                    <span className="text-body-xs font-normal text-secondary dark:text-slate-550">
+                      {t("dashboard.mins")}
+                    </span>
+                    {isHighMttr && (
+                      <Badge variant="danger" size="sm" className="font-sans font-bold">
+                        {t("dashboard.slaBreach")}
+                      </Badge>
+                    )}
+                  </p>
+                </div>
+              </div>
+
+            </div>
+
+            <div className="border-t border-surface-border dark:border-slate-800 pt-3 flex flex-col sm:flex-row justify-between text-body-xs text-secondary dark:text-slate-400 gap-2">
+              <div className="flex items-center gap-1.5">
+                <AlertCircle className="w-4 h-4 text-amber-500" />
+                <span>{t("dashboard.mttdTarget")}</span>
+              </div>
+              <div className="flex items-center gap-1.5">
+                <AlertCircle className="w-4 h-4 text-amber-500" />
+                <span>{t("dashboard.mttrTarget")}</span>
+              </div>
+            </div>
+          </div>
+
+          {/* Incidents Status Chart / Distribution */}
+          <div className="bg-white dark:bg-slate-900 border border-surface-border dark:border-slate-800 rounded-xl p-5 shadow-sm flex flex-col justify-between min-h-[220px]">
+            <div>
+              <h3 className="text-body-sm font-bold text-primary dark:text-slate-200">
+                {t("dashboard.incidentLifecycle")}
+              </h3>
+              <p className="text-body-xs text-secondary dark:text-slate-400 mb-2">
+                {t("dashboard.incidentLifecycleDescription")}
+              </p>
+            </div>
+            
+            <div className="space-y-2.5">
+              {incidentStatusData.length > 0 ? (
+                incidentStatusData.map((item) => {
+                  const percentage = summary.total_incidents_count > 0 
+                    ? Math.round((item.value / summary.total_incidents_count) * 100)
+                    : 0;
+                  
+                  return (
+                    <div key={item.name} className="space-y-1">
+                      <div className="flex justify-between text-body-xs font-medium">
+                        <span className="text-primary dark:text-slate-350">{item.name}</span>
+                        <span className="text-secondary dark:text-slate-450 font-mono">
+                          {item.value} ({percentage}%)
+                        </span>
+                      </div>
+                      <div className="w-full bg-slate-100 dark:bg-slate-800 h-1.5 rounded-full overflow-hidden">
+                        <div 
+                          className={cn(
+                            "h-full rounded-full transition-all duration-500",
+                            item.name === "Open" ? "bg-red-500" :
+                            item.name === "Contained" ? "bg-amber-500" :
+                            item.name === "Resolved" ? "bg-blue-500" : "bg-emerald-500"
+                          )}
+                          style={{ width: `${percentage}%` }}
+                        />
+                      </div>
+                    </div>
+                  );
+                })
+              ) : (
+                <p className="text-body-xs text-secondary dark:text-slate-500 py-6 text-center italic">
+                  {t("dashboard.noIncidents")}
+                </p>
+              )}
+            </div>
+          </div>
+
+        </div>
+
       </div>
     </PageLayout>
   );

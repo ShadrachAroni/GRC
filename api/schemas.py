@@ -376,3 +376,32 @@ class AuditLogResponse(BaseModel):
     ip_address: Optional[str] = None
     timestamp: datetime
     details: Optional[str] = None
+
+
+# Dashboard Schema
+class DashboardSummaryResponse(BaseModel):
+    open_risks_count: int
+    total_risks_count: int
+    avg_risk_score: float
+    risks_by_severity: dict
+    
+    implemented_controls_count: int
+    total_controls_count: int
+    compliance_score: float
+    controls_by_status: dict
+    controls_by_framework: dict
+    
+    open_incidents_count: int
+    active_incidents_count: int
+    total_incidents_count: int
+    avg_mttd_minutes: float
+    avg_mttr_minutes: float
+    incidents_by_severity: dict
+    incidents_by_status: dict
+    
+    open_findings_count: int
+    total_findings_count: int
+    
+    open_capas_count: int
+    total_capas_count: int
+
