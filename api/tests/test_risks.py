@@ -70,7 +70,7 @@ def test_risk_input_validation():
     assert response.status_code == 422
 
 def test_risk_scoring_and_audit_trail(db_session: Session):
-    token = create_authenticated_user("analyst2@securebank.com", "GRC Analyst")
+    token = create_authenticated_user("admin2@securebank.com", "Administrator")
     headers = {"Authorization": f"Bearer {token}"}
     
     # Create Risk
