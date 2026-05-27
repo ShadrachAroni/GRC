@@ -9,19 +9,26 @@ import { Badge } from "@/components/atoms/Badge";
 import { dashboardService } from "@/services/dashboard";
 import { useAuthStore } from "@/context/AuthStore";
 import { cn } from "@/utils/cn";
-import {
-  ResponsiveContainer,
-  BarChart,
-  Bar,
-  XAxis,
-  YAxis,
-  CartesianGrid,
-  Tooltip,
-  Legend,
-  PieChart,
-  Pie,
-  Cell,
-} from "recharts";
+import dynamic from "next/dynamic";
+
+const ChartLoader = ({ messageKey }: { messageKey: string }) => {
+  const { t } = useTranslation();
+  return (
+    <div className="h-full flex items-center justify-center text-body-sm text-secondary animate-pulse">
+      {t(messageKey)}
+    </div>
+  );
+};
+
+const ComplianceBarChart = dynamic(
+  () => import("@/components/atoms/ComplianceBarChart"),
+  { ssr: false, loading: () => <ChartLoader messageKey="dashboard.loadingComplianceChart" /> }
+);
+
+const RiskDonutChart = dynamic(
+  () => import("@/components/atoms/RiskDonutChart"),
+  { ssr: false, loading: () => <ChartLoader messageKey="dashboard.loadingRiskProfile" /> }
+);
 import {
   Shield,
   AlertTriangle,
@@ -326,41 +333,7 @@ export default function Home() {
             </div>
             <div className="h-60 w-full">
               {complianceFrameworkData.length > 0 ? (
-                <ResponsiveContainer width="100%" height="100%">
-                  <BarChart data={complianceFrameworkData} margin={{ top: 10, right: 10, left: -20, bottom: 0 }}>
-                    <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#E2E8F0" className="dark:stroke-slate-800" />
-                    <XAxis dataKey="name" stroke="#94A3B8" fontSize={11} tickLine={false} />
-                    <YAxis domain={[0, 100]} stroke="#94A3B8" fontSize={11} tickLine={false} />
-                    <Tooltip
-                      cursor={{ fill: "rgba(148, 163, 184, 0.05)" }}
-                      contentStyle={{
-                        background: "#0F172A",
-                        border: "none",
-                        borderRadius: "8px",
-                        color: "#F8FAFC",
-                        fontSize: "12px",
-                      }}
-                    />
-                    <Legend verticalAlign="top" height={36} iconType="circle" fontSize={12} />
-                    <Bar
-                      dataKey="complianceScore"
-                      name={t("controls.stats.score")}
-                      fill="#6366F1"
-                      radius={[4, 4, 0, 0]}
-                      barSize={40}
-                    >
-                      {complianceFrameworkData.map((entry, idx) => {
-                        const score = entry.complianceScore;
-                        return (
-                          <Cell
-                            key={`cell-${idx}`}
-                            fill={score >= 70 ? "#10B981" : score >= 40 ? "#F59E0B" : "#EF4444"}
-                          />
-                        );
-                      })}
-                    </Bar>
-                  </BarChart>
-                </ResponsiveContainer>
+                <ComplianceBarChart data={complianceFrameworkData} scoreLabel={t("controls.stats.score")} />
               ) : (
                 <div className="h-full flex items-center justify-center text-body-sm text-secondary dark:text-slate-500">
                   {t("dashboard.noFrameworks")}
@@ -382,33 +355,8 @@ export default function Home() {
             <div className="h-44 w-full relative flex items-center justify-center">
               {riskSeverityData.length > 0 ? (
                 <>
-                  <ResponsiveContainer width="100%" height="100%">
-                    <PieChart>
-                      <Pie
-                        data={riskSeverityData}
-                        cx="50%"
-                        cy="50%"
-                        innerRadius={55}
-                        outerRadius={75}
-                        paddingAngle={4}
-                        dataKey="value"
-                      >
-                        {riskSeverityData.map((entry, index) => (
-                          <Cell key={`cell-${index}`} fill={getSeverityColor(entry.rawName)} />
-                        ))}
-                      </Pie>
-                      <Tooltip
-                        contentStyle={{
-                          background: "#0F172A",
-                          border: "none",
-                          borderRadius: "8px",
-                          color: "#F8FAFC",
-                          fontSize: "12px",
-                        }}
-                      />
-                    </PieChart>
-                  </ResponsiveContainer>
-                  <div className="absolute flex flex-col items-center justify-center">
+                  <RiskDonutChart data={riskSeverityData} getSeverityColor={getSeverityColor} />
+                  <div className="absolute flex flex-col items-center justify-center pointer-events-none">
                     <span className="text-body-xs font-semibold text-secondary dark:text-slate-400">
                       {t("dashboard.totalRisks")}
                     </span>

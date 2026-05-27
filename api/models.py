@@ -89,6 +89,7 @@ class Risk(Base):
 
     __table_args__ = (
         Index('idx_risks_tenant_created', 'tenant_id', 'created_at'),
+        Index('idx_risks_tenant_status', 'tenant_id', 'status'),
     )
 
 class Control(Base):
@@ -119,6 +120,8 @@ class Control(Base):
 
     __table_args__ = (
         Index('idx_controls_tenant_created', 'tenant_id', 'created_at'),
+        Index('idx_controls_tenant_status', 'tenant_id', 'status'),
+        Index('idx_controls_tenant_framework', 'tenant_id', 'framework'),
     )
 
 class Incident(Base):
@@ -139,6 +142,8 @@ class Incident(Base):
 
     __table_args__ = (
         Index('idx_incidents_tenant_created', 'tenant_id', 'created_at'),
+        Index('idx_incidents_tenant_status', 'tenant_id', 'status'),
+        Index('idx_incidents_tenant_severity', 'tenant_id', 'severity'),
     )
 
 class Vendor(Base):

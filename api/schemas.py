@@ -430,3 +430,15 @@ class DashboardSummaryResponse(BaseModel):
     
     open_capas_count: int
     total_capas_count: int
+
+
+# Framework Schemas
+class FrameworkSpecResponse(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+    id: str
+    name: str
+    description: str
+    version: str
+    category: str
+    total_controls: int
+

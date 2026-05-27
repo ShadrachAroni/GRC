@@ -304,7 +304,7 @@ export default function ControlsPage() {
 
             <div className="flex items-center gap-2.5 w-full sm:w-auto">
               <label htmlFor="status-filter" className="text-body-sm font-semibold text-secondary dark:text-slate-300 whitespace-nowrap">
-                Filter Status:
+                {t("controls.statusFilter.label")}
               </label>
               <select
                 id="status-filter"
@@ -312,7 +312,7 @@ export default function ControlsPage() {
                 onChange={(e) => setStatusFilter(e.target.value)}
                 className="px-2.5 py-1.5 h-9 bg-white dark:bg-slate-900 border border-surface-border dark:border-slate-700 rounded-md text-body-sm text-primary dark:text-slate-100 focus:outline-none focus:ring-1 focus:ring-primary"
               >
-                <option value="All">All Statuses</option>
+                <option value="All">{t("controls.statusFilter.all")}</option>
                 <option value="Implemented">{t("controls.stats.implemented")}</option>
                 <option value="In Progress">{t("controls.stats.inProgress")}</option>
                 <option value="Not Started">{t("controls.stats.notStarted")}</option>
@@ -411,8 +411,9 @@ export default function ControlsPage() {
               </h4>
               <button
                 onClick={() => setSelectedControl(null)}
-                className="p-1 rounded-md text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800 hover:text-slate-600"
+                className="p-1 rounded-md text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800 hover:text-slate-600 focus:ring-2 focus:ring-primary focus:outline-none"
                 title="Close Modal"
+                aria-label="Close Modal"
               >
                 <X className="w-5 h-5" />
               </button>
@@ -539,8 +540,17 @@ export default function ControlsPage() {
                       onDragLeave={() => setDragActive(false)}
                       onDrop={handleFileDrop}
                       onClick={() => fileInputRef.current?.click()}
+                      onKeyDown={(e) => {
+                        if (e.key === "Enter" || e.key === " ") {
+                          e.preventDefault();
+                          fileInputRef.current?.click();
+                        }
+                      }}
+                      tabIndex={0}
+                      role="button"
+                      aria-label="Upload evidence file"
                       className={cn(
-                        "border-2 border-dashed rounded-lg p-6 text-center cursor-pointer transition-all duration-150 flex flex-col items-center justify-center gap-2",
+                        "border-2 border-dashed rounded-lg p-6 text-center cursor-pointer transition-all duration-150 flex flex-col items-center justify-center gap-2 focus:ring-2 focus:ring-primary focus:outline-none",
                         dragActive
                           ? "border-primary dark:border-white bg-slate-50 dark:bg-slate-800/40"
                           : "border-surface-border dark:border-slate-800 hover:bg-slate-50 dark:hover:bg-slate-850"
@@ -550,14 +560,15 @@ export default function ControlsPage() {
                       <p className="text-body-sm text-secondary dark:text-slate-300 font-medium">
                         {t("controls.modal.uploadText")}
                       </p>
-                      <input
-                        type="file"
-                        ref={fileInputRef}
-                        onChange={handleFileSelect}
-                        className="hidden"
-                        accept=".pdf,.png,.jpg,.jpeg,.csv"
-                      />
                     </div>
+                    <input
+                      type="file"
+                      ref={fileInputRef}
+                      onChange={handleFileSelect}
+                      className="hidden"
+                      accept=".pdf,.png,.jpg,.jpeg,.csv"
+                      aria-label={t("controls.modal.uploadTitle")}
+                    />
 
                     {uploadError && (
                       <div className="bg-rose-500/10 border border-rose-500/20 text-danger-rose dark:text-rose-400 p-3 rounded text-body-sm">
@@ -574,7 +585,7 @@ export default function ControlsPage() {
                     {isUploading && (
                       <div className="flex items-center justify-center gap-2 text-body-sm text-secondary dark:text-slate-400 py-2">
                         <div className="w-4 h-4 border-2 border-primary border-t-transparent rounded-full animate-spin" />
-                        Uploading file...
+                        {t("controls.modal.uploading")}
                       </div>
                     )}
                   </div>
@@ -584,7 +595,7 @@ export default function ControlsPage() {
 
             {/* Footer */}
             <div className="p-4 border-t border-surface-border dark:border-slate-800 flex items-center justify-end bg-slate-50 dark:bg-slate-900/60">
-              <Button onClick={() => setSelectedControl(null)}>Close</Button>
+              <Button onClick={() => setSelectedControl(null)}>{t("controls.modal.close")}</Button>
             </div>
           </div>
         </div>

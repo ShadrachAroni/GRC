@@ -8,8 +8,9 @@ from sqlalchemy.orm import Session
 from api.database import get_db
 from api.dependencies import get_current_user, RoleChecker
 from api.models import User, Control, Evidence
-from api.schemas import ControlResponse, ControlUpdate, EvidenceResponse
+from api.schemas import ControlResponse, ControlUpdate, EvidenceResponse, FrameworkSpecResponse
 from api.audit_logging import audit_log
+from api.cache import cache_response
 
 router = APIRouter()
 
@@ -44,6 +45,39 @@ def list_controls(
     # Control 15 (Tenant Isolation): Scoped strictly to user's tenant
     controls = db.query(Control).filter(Control.tenant_id == current_user.tenant_id).all()
     return controls
+
+@router.get("/frameworks", response_model=List[FrameworkSpecResponse])
+@cache_response(expire=3600)
+def list_frameworks(
+    current_user: User = Depends(get_current_user)
+):
+    return [
+        {
+            "id": "SOC2",
+            "name": "SOC 2 Type II",
+            "description": "Trust Services Criteria for Security, Availability, Processing Integrity, Confidentiality, and Privacy.",
+            "version": "2017",
+            "category": "Security & Privacy",
+            "total_controls": 5
+        },
+        {
+            "id": "ISO27001",
+            "name": "ISO/IEC 27001",
+            "description": "International standard for information security management systems (ISMS).",
+            "version": "2022",
+            "category": "Information Security",
+            "total_controls": 3
+        },
+        {
+            "id": "PCI-DSS",
+            "name": "PCI-DSS",
+            "description": "Payment Card Industry Data Security Standard for securing credit card transactions.",
+            "version": "4.0",
+            "category": "Payment Security",
+            "total_controls": 2
+        }
+    ]
+
 
 @router.patch("/{control_id}", response_model=ControlResponse)
 @audit_log("UPDATE_CONTROL")

@@ -182,6 +182,8 @@ i18n.use(initReactI18next).init({
         "controls.stats.notStarted": "Not Started",
         "controls.loading": "Loading controls...",
         "controls.searchPlaceholder": "Search controls, descriptions, owners...",
+        "controls.statusFilter.label": "Filter Status:",
+        "controls.statusFilter.all": "All Statuses",
         "controls.table.id": "Control ID",
         "controls.table.description": "Description",
         "controls.table.status": "Status",
@@ -201,6 +203,8 @@ i18n.use(initReactI18next).init({
         "controls.modal.uploadSuccess": "Evidence uploaded successfully!",
         "controls.modal.statusUpdateSuccess": "Control status updated successfully!",
         "controls.modal.viewerWarning": "Viewers cannot upload evidence or edit statuses.",
+        "controls.modal.close": "Close",
+        "controls.modal.uploading": "Uploading file...",
 
         // Incidents page
         "incidents.stats.total": "Total Incidents",
@@ -226,6 +230,8 @@ i18n.use(initReactI18next).init({
         // Dashboard
         "dashboard.title": "Executive Dashboard",
         "dashboard.loading": "Compiling aggregated GRC metrics...",
+        "dashboard.loadingComplianceChart": "Loading compliance chart...",
+        "dashboard.loadingRiskProfile": "Loading risk profile...",
         "dashboard.error.title": "Failed to load dashboard metrics",
         "dashboard.error.default": "An unexpected error occurred while communicating with the GRC database.",
         "dashboard.error.retry": "Retry Connection",
