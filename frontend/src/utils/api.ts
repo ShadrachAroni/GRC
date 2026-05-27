@@ -11,7 +11,7 @@ export async function apiRequest(endpoint: string, options: RequestOptions = {})
   const store = useAuthStore.getState();
   
   const headers = new Headers(fetchOptions.headers);
-  if (!headers.has("Content-Type")) {
+  if (!headers.has("Content-Type") && !(fetchOptions.body instanceof FormData)) {
     headers.set("Content-Type", "application/json");
   }
 
