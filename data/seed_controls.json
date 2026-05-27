@@ -1,0 +1,35 @@
+[
+  {
+    "control_id": "CC6.1",
+    "tenant_id": "tenant-123",
+    "framework": "SOC2",
+    "description": "The entity authorizes logical access to information assets...",
+    "company_control": "All employees must use Multi-Factor Authentication (MFA) to access corporate assets.",
+    "status": "Implemented",
+    "owner": "it_sec@securebank.com",
+    "evidence_required": "MFA configuration report, employee enrollment list.",
+    "last_reviewed": "2026-05-01"
+  },
+  {
+    "control_id": "CC6.3",
+    "tenant_id": "tenant-123",
+    "framework": "SOC2",
+    "description": "The entity prevents unauthorized logical access by verifying identity...",
+    "company_control": "Password complexity settings require 12+ characters, symbols, numbers, and case variation.",
+    "status": "Implemented",
+    "owner": "it_sec@securebank.com",
+    "evidence_required": "Active Directory password policy screenshot.",
+    "last_reviewed": "2026-05-10"
+  },
+  {
+    "control_id": "A.9.1.1",
+    "tenant_id": "tenant-456",
+    "framework": "ISO27001",
+    "description": "An access control policy shall be established, documented and reviewed...",
+    "company_control": "Annual review of user access rights by managers.",
+    "status": "Not Started",
+    "owner": "ciso@vendorcorp.com",
+    "evidence_required": "Signed access review reports.",
+    "last_reviewed": "2026-01-15"
+  }
+]

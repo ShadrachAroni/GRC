@@ -1,35 +1,31 @@
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, ConfigDict
 from typing import Optional, List
 
 class UserRegister(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+    
     email: str
     password: str = Field(..., min_length=8)
     tenant_id: Optional[str] = None
     role: Optional[str] = "Viewer"  # Viewer, GRC Analyst, Administrator
 
-    class Config:
-        extra = "forbid"
-
 class UserLogin(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+    
     email: str
     password: str
 
-    class Config:
-        extra = "forbid"
-
 class MFAEnableRequest(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+    
     email: str
     code: str
 
-    class Config:
-        extra = "forbid"
-
 class MFALoginVerify(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+    
     temp_token: str
     code: str
-
-    class Config:
-        extra = "forbid"
 
 class TokenResponse(BaseModel):
     access_token: str
@@ -40,28 +36,25 @@ class TokenResponse(BaseModel):
     email: str
 
 class PasswordResetRequest(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+    
     email: str
     redirect_uri: Optional[str] = None
 
-    class Config:
-        extra = "forbid"
-
 class PasswordResetConfirm(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+    
     token: str
     new_password: str = Field(..., min_length=8)
 
-    class Config:
-        extra = "forbid"
-
 class UserResponse(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+    
     id: int
     email: str
     role: str
     tenant_id: str
     mfa_enabled: bool
-
-    class Config:
-        from_attributes = True
 
 class RegisterResponse(BaseModel):
     message: str

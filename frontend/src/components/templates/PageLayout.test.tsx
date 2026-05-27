@@ -6,6 +6,11 @@ import { describe, it, expect, vi } from "vitest";
 // Mock next/navigation
 vi.mock("next/navigation", () => ({
   usePathname: () => "/risks",
+  useRouter: () => ({
+    push: vi.fn(),
+    prefetch: vi.fn(),
+    replace: vi.fn(),
+  }),
 }));
 
 describe("PageLayout component", () => {

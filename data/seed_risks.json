@@ -1,0 +1,47 @@
+[
+  {
+    "risk_id": "R-101",
+    "tenant_id": "tenant-123",
+    "asset": "Customer Database",
+    "threat": "Unauthorized data access / Exfiltration",
+    "likelihood": 3,
+    "impact": 5,
+    "risk_score": 15,
+    "severity": "High",
+    "mitigation": "Implement database encryption at rest and strict IAM policies.",
+    "status": "Open",
+    "owner": "ciso@securebank.com",
+    "department": "Engineering",
+    "review_date": "2026-12-31"
+  },
+  {
+    "risk_id": "R-102",
+    "tenant_id": "tenant-123",
+    "asset": "Corporate Laptops",
+    "threat": "Ransomware infection via phishing",
+    "likelihood": 4,
+    "impact": 3,
+    "risk_score": 12,
+    "severity": "High",
+    "mitigation": "Install endpoint protection (EDR) software and conduct employee training.",
+    "status": "Open",
+    "owner": "it_sec@securebank.com",
+    "department": "IT",
+    "review_date": "2026-11-30"
+  },
+  {
+    "risk_id": "R-201",
+    "tenant_id": "tenant-456",
+    "asset": "API Gateway",
+    "threat": "DDoS attack causing downtime",
+    "likelihood": 2,
+    "impact": 4,
+    "risk_score": 8,
+    "severity": "Medium",
+    "mitigation": "Configure Cloudflare rate limiting and WAF rules.",
+    "status": "Open",
+    "owner": "devops@vendorcorp.com",
+    "department": "Operations",
+    "review_date": "2026-10-15"
+  }
+]

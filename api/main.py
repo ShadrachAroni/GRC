@@ -1,6 +1,6 @@
 from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import JSONResponse
+from fastapi.responses import JSONResponse, RedirectResponse
 from api.config import settings
 from api.logger import logger
 from api.routers import risks, controls, incidents, vendors, audit, auth
@@ -60,6 +60,11 @@ app.include_router(controls.router, prefix="/api/controls", tags=["Controls"])
 app.include_router(incidents.router, prefix="/api/incidents", tags=["Incidents"])
 app.include_router(vendors.router, prefix="/api/vendors", tags=["Vendors"])
 app.include_router(audit.router, prefix="/api/audit", tags=["Audit"])
+
+@app.get("/", include_in_schema=False)
+def root_redirect():
+    return RedirectResponse(url="/docs")
+
 
 @app.get("/health")
 def health_check():

@@ -49,6 +49,9 @@ def get_current_user(
 def get_tenant_id(current_user: User = Depends(get_current_user)) -> str:
     return current_user.tenant_id
 
+def get_tenant_filter(current_user: User = Depends(get_current_user)) -> str:
+    return current_user.tenant_id
+
 class RoleChecker:
     def __init__(self, allowed_roles: List[str]):
         self.allowed_roles = allowed_roles

@@ -1,8 +1,10 @@
-from pydantic_settings import BaseSettings
+from pydantic_settings import BaseSettings, SettingsConfigDict
 from typing import List, Optional
 import os
 
 class Settings(BaseSettings):
+    model_config = SettingsConfigDict(env_file=".env", extra="ignore")
+    
     ENVIRONMENT: str = "development"
     DATABASE_URL: str = "sqlite:///./grcdb.db"
     JWT_SECRET_KEY: str = "your-default-256-bit-key-must-change-in-production-12345"
@@ -27,8 +29,5 @@ class Settings(BaseSettings):
         dev_list = [origin.strip() for origin in self.DEV_ORIGINS.split(",") if origin.strip()]
         return dev_list
 
-    class Config:
-        env_file = ".env"
-        extra = "ignore"
 
 settings = Settings()
