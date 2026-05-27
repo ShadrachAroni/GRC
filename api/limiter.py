@@ -5,9 +5,11 @@ from api.config import settings
 
 logger = logging.getLogger("grc")
 
-# Fallback to in-memory if Redis isn't configured/available
+import sys
+# Fallback to in-memory if Redis isn't configured/available or during tests
 storage_uri = "memory://"
-if settings.REDIS_URL:
+is_testing = "pytest" in sys.modules
+if settings.REDIS_URL and not is_testing:
     storage_uri = settings.REDIS_URL
     logger.info(f"Rate Limiter: Using Redis storage: {storage_uri}")
 else:

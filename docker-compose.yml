@@ -11,7 +11,7 @@ services:
       POSTGRES_USER: grc
       POSTGRES_PASSWORD: securepass
     ports:
-      - "5432:5432"
+      - "5434:5432"
     volumes:
       - pgdata:/var/lib/postgresql/data
     networks:

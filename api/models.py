@@ -258,5 +258,37 @@ class AccessReview(Base):
         Index('idx_access_reviews_tenant_created', 'tenant_id', 'created_at'),
     )
 
+class SystemAuditLog(Base):
+    __tablename__ = "system_audit_logs"
+
+    id = Column(Integer, primary_key=True, index=True)
+    tenant_id = Column(String, index=True, nullable=False)
+    user_email = Column(String, nullable=False)
+    action = Column(String, nullable=False)
+    ip_address = Column(String, nullable=True)
+    timestamp = Column(DateTime, default=datetime.datetime.utcnow, nullable=False)
+    details = Column(String, nullable=True)
+
+    __table_args__ = (
+        Index('idx_audit_logs_tenant_created', 'tenant_id', 'timestamp'),
+    )
+
+from sqlalchemy import event
+
+@event.listens_for(Risk, 'before_insert')
+@event.listens_for(Risk, 'before_update')
+def calculate_risk_score_and_severity(mapper, connection, target):
+    likelihood = target.likelihood or 0
+    impact = target.impact or 0
+    target.risk_score = likelihood * impact
+    if target.risk_score >= 16:
+        target.severity = "Critical"
+    elif target.risk_score >= 11:
+        target.severity = "High"
+    elif target.risk_score >= 6:
+        target.severity = "Medium"
+    else:
+        target.severity = "Low"
+
 
 

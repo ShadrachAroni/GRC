@@ -366,3 +366,13 @@ class AccessReviewResponse(BaseModel):
     justification: Optional[str] = None
     reviewed_at: Optional[datetime] = None
     created_at: datetime
+
+class AuditLogResponse(BaseModel):
+    model_config = ConfigDict(from_attributes=True, extra="forbid")
+    id: int
+    tenant_id: str
+    user_email: str
+    action: str
+    ip_address: Optional[str] = None
+    timestamp: datetime
+    details: Optional[str] = None

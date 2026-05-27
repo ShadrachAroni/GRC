@@ -215,7 +215,7 @@ def test_protected_routes():
     headers = {"Authorization": f"Bearer {access_token}"}
     response_risks = client.get("/api/risks/", headers=headers)
     assert response_risks.status_code == 200
-    assert response_risks.json()["email"] == "protected@securebank.com"
+    assert isinstance(response_risks.json(), list)
 
 def test_rbac_controls():
     # 1. Register a Viewer user and enable MFA

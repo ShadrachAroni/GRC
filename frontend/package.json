@@ -10,13 +10,17 @@
     "test": "vitest"
   },
   "dependencies": {
+    "@tanstack/react-query": "^5.100.14",
     "clsx": "^2.1.1",
     "framer-motion": "^11.2.6",
+    "i18next": "^26.3.0",
     "lucide-react": "^0.379.0",
     "next": "14.2.3",
     "react": "^18",
     "react-dom": "^18",
+    "react-i18next": "^17.0.8",
     "tailwind-merge": "^2.3.0",
+    "zod": "^4.4.3",
     "zustand": "^5.0.13"
   },
   "devDependencies": {

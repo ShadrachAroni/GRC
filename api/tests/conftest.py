@@ -24,7 +24,19 @@ TestingSessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engin
 def setup_db():
     # Setup test tables
     Base.metadata.create_all(bind=engine)
+    
+    # Override get_db to use test database session
+    def override_get_db():
+        db = TestingSessionLocal()
+        try:
+            yield db
+        finally:
+            db.close()
+            
+    app.dependency_overrides[get_db] = override_get_db
     yield
+    # Clean up overrides
+    app.dependency_overrides.clear()
     # Teardown test tables cleanly
     Base.metadata.drop_all(bind=engine)
 
