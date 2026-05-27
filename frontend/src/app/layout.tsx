@@ -3,7 +3,6 @@ import { Inter, JetBrains_Mono } from "next/font/google";
 import "./globals.css";
 import { RouteGuard } from "@/components/organisms/RouteGuard";
 import { QueryProvider } from "@/context/QueryProvider";
-import "@/i18n";
 
 const inter = Inter({
   subsets: ["latin"],
