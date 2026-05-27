@@ -4,7 +4,7 @@ from fastapi.responses import JSONResponse, RedirectResponse
 from starlette.middleware.base import BaseHTTPMiddleware
 from api.config import settings
 from api.logger import logger
-from api.routers import risks, controls, incidents, vendors, audit, auth, dashboard
+from api.routers import risks, controls, incidents, vendors, audit, auth, dashboard, payments
 from api.database import engine, Base
 import api.models  # Ensures models are registered on Base
 
@@ -95,6 +95,7 @@ app.include_router(incidents.router, prefix="/api/incidents", tags=["Incidents"]
 app.include_router(vendors.router, prefix="/api/vendors", tags=["Vendors"])
 app.include_router(audit.router, prefix="/api/audit", tags=["Audit"])
 app.include_router(dashboard.router, prefix="/api/dashboard", tags=["Dashboard"])
+app.include_router(payments.router, prefix="/api/payments", tags=["Payments"])
 
 @app.get("/", include_in_schema=False)
 def root_redirect():

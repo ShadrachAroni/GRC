@@ -1,7 +1,39 @@
-from sqlalchemy import Column, Integer, String, Boolean, DateTime, Date, ForeignKey, Index, ForeignKeyConstraint
+from sqlalchemy import Column, Integer, String, Boolean, DateTime, Date, ForeignKey, Index, ForeignKeyConstraint, TypeDecorator
 from sqlalchemy.orm import relationship
 from api.database import Base
 import datetime
+import base64
+import hashlib
+from cryptography.fernet import Fernet
+from api.config import settings
+
+class EncryptedString(TypeDecorator):
+    """Transparently encrypt/decrypt strings using Fernet symmetric encryption."""
+    impl = String
+    cache_ok = True
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        # Derive a 32-byte key from JWT_SECRET_KEY for Fernet
+        key_hash = hashlib.sha256(settings.JWT_SECRET_KEY.encode()).digest()
+        fernet_key = base64.urlsafe_b64encode(key_hash)
+        self.fernet = Fernet(fernet_key)
+
+    def process_bind_param(self, value, dialect):
+        if value is None:
+            return None
+        encrypted_bytes = self.fernet.encrypt(value.encode())
+        return encrypted_bytes.decode()
+
+    def process_result_value(self, value, dialect):
+        if value is None:
+            return None
+        try:
+            decrypted_bytes = self.fernet.decrypt(value.encode())
+            return decrypted_bytes.decode()
+        except Exception:
+            # Fallback if decryption fails (e.g. existing unencrypted data)
+            return value
 
 class User(Base):
     __tablename__ = "users"
@@ -11,7 +43,7 @@ class User(Base):
     hashed_password = Column(String, nullable=False)
     role = Column(String, default="Viewer", nullable=False)  # Viewer, GRC Analyst, Administrator
     tenant_id = Column(String, index=True, nullable=False)
-    mfa_secret = Column(String, nullable=True)
+    mfa_secret = Column(EncryptedString, nullable=True)
     mfa_enabled = Column(Boolean, default=False, nullable=False)
     hashed_recovery_codes = Column(String, nullable=True)  # Comma-separated list of hashed recovery codes
     is_active = Column(Boolean, default=True, nullable=False)

@@ -1,8 +1,34 @@
-from pydantic import BaseModel, Field, ConfigDict
+from pydantic import BaseModel, Field, ConfigDict, model_validator
 from typing import Optional, List, Literal
 from datetime import date, datetime
+import html
 
-class UserRegister(BaseModel):
+class SanitizedBaseModel(BaseModel):
+    @model_validator(mode="before")
+    @classmethod
+    def sanitize_strings(cls, data):
+        if not isinstance(data, dict):
+            return data
+        
+        excluded_keys = {
+            "password", "code", "token", "temp_token", 
+            "refresh_token", "redirect_uri", "mfa_secret"
+        }
+        
+        def sanitize_val(key, val):
+            if key in excluded_keys:
+                return val
+            if isinstance(val, str):
+                return html.escape(val)
+            if isinstance(val, dict):
+                return {k: sanitize_val(k, v) for k, v in val.items()}
+            if isinstance(val, list):
+                return [sanitize_val(key, item) for item in val]
+            return val
+
+        return {k: sanitize_val(k, v) for k, v in data.items()}
+
+class UserRegister(SanitizedBaseModel):
     model_config = ConfigDict(extra="forbid")
     
     email: str
@@ -10,19 +36,19 @@ class UserRegister(BaseModel):
     tenant_id: Optional[str] = None
     role: Optional[str] = "Viewer"  # Viewer, GRC Analyst, Administrator
 
-class UserLogin(BaseModel):
+class UserLogin(SanitizedBaseModel):
     model_config = ConfigDict(extra="forbid")
     
     email: str
     password: str
 
-class MFAEnableRequest(BaseModel):
+class MFAEnableRequest(SanitizedBaseModel):
     model_config = ConfigDict(extra="forbid")
     
     email: str
     code: str
 
-class MFALoginVerify(BaseModel):
+class MFALoginVerify(SanitizedBaseModel):
     model_config = ConfigDict(extra="forbid")
     
     temp_token: str
@@ -37,13 +63,13 @@ class TokenResponse(BaseModel):
     tenant_id: str
     email: str
 
-class PasswordResetRequest(BaseModel):
+class PasswordResetRequest(SanitizedBaseModel):
     model_config = ConfigDict(extra="forbid")
     
     email: str
     redirect_uri: Optional[str] = None
 
-class PasswordResetConfirm(BaseModel):
+class PasswordResetConfirm(SanitizedBaseModel):
     model_config = ConfigDict(extra="forbid")
     
     token: str
@@ -71,7 +97,7 @@ class RegisterResponse(BaseModel):
 # --- GRC Business Entity Schemas (Phase 05) ---
 
 # Risk Schemas
-class RiskCreate(BaseModel):
+class RiskCreate(SanitizedBaseModel):
     model_config = ConfigDict(extra="forbid")
     risk_id: str
     asset: str
@@ -84,7 +110,7 @@ class RiskCreate(BaseModel):
     department: Optional[str] = None
     review_date: Optional[date] = None
 
-class RiskUpdate(BaseModel):
+class RiskUpdate(SanitizedBaseModel):
     model_config = ConfigDict(extra="forbid")
     asset: Optional[str] = None
     threat: Optional[str] = None
@@ -116,7 +142,7 @@ class RiskResponse(BaseModel):
 
 
 # Control Schemas
-class ControlCreate(BaseModel):
+class ControlCreate(SanitizedBaseModel):
     model_config = ConfigDict(extra="forbid")
     control_id: str
     framework: str
@@ -127,7 +153,7 @@ class ControlCreate(BaseModel):
     evidence_required: Optional[str] = None
     last_reviewed: Optional[date] = None
 
-class ControlUpdate(BaseModel):
+class ControlUpdate(SanitizedBaseModel):
     model_config = ConfigDict(extra="forbid")
     framework: Optional[str] = None
     description: Optional[str] = None
@@ -152,7 +178,7 @@ class ControlResponse(BaseModel):
 
 
 # Incident Schemas
-class IncidentCreate(BaseModel):
+class IncidentCreate(SanitizedBaseModel):
     model_config = ConfigDict(extra="forbid")
     title: str = Field(..., min_length=1)
     severity: Literal["Critical", "High", "Medium", "Low"]
@@ -162,7 +188,7 @@ class IncidentCreate(BaseModel):
     description: Optional[str] = None
     assigned_to: Optional[str] = None
 
-class IncidentUpdate(BaseModel):
+class IncidentUpdate(SanitizedBaseModel):
     model_config = ConfigDict(extra="forbid")
     title: Optional[str] = None
     severity: Optional[Literal["Critical", "High", "Medium", "Low"]] = None
@@ -189,7 +215,7 @@ class IncidentResponse(BaseModel):
 
 
 # Vendor Schemas
-class VendorCreate(BaseModel):
+class VendorCreate(SanitizedBaseModel):
     model_config = ConfigDict(extra="forbid")
     name: str
     status: Optional[str] = "Pending"
@@ -197,7 +223,7 @@ class VendorCreate(BaseModel):
     risk_tier: Optional[str] = None
     contact_email: Optional[str] = None
 
-class VendorUpdate(BaseModel):
+class VendorUpdate(SanitizedBaseModel):
     model_config = ConfigDict(extra="forbid")
     name: Optional[str] = None
     status: Optional[str] = None
@@ -219,7 +245,7 @@ class VendorResponse(BaseModel):
 
 
 # Vendor Assessment Schemas
-class VendorAssessmentCreate(BaseModel):
+class VendorAssessmentCreate(SanitizedBaseModel):
     model_config = ConfigDict(extra="forbid")
     vendor_id: int
     assessed_by: Optional[str] = None
@@ -228,7 +254,7 @@ class VendorAssessmentCreate(BaseModel):
     status: Optional[str] = "Draft"
     questionnaire_data: Optional[str] = None
 
-class VendorAssessmentUpdate(BaseModel):
+class VendorAssessmentUpdate(SanitizedBaseModel):
     model_config = ConfigDict(extra="forbid")
     vendor_id: Optional[int] = None
     assessed_by: Optional[str] = None
@@ -252,7 +278,7 @@ class VendorAssessmentResponse(BaseModel):
 
 
 # Audit Finding Schemas
-class AuditFindingCreate(BaseModel):
+class AuditFindingCreate(SanitizedBaseModel):
     model_config = ConfigDict(extra="forbid")
     finding_id: str
     title: str
@@ -261,7 +287,7 @@ class AuditFindingCreate(BaseModel):
     recommendation: Optional[str] = None
     status: Optional[str] = "Open"
 
-class AuditFindingUpdate(BaseModel):
+class AuditFindingUpdate(SanitizedBaseModel):
     model_config = ConfigDict(extra="forbid")
     title: Optional[str] = None
     severity: Optional[str] = None
@@ -283,7 +309,7 @@ class AuditFindingResponse(BaseModel):
 
 
 # CAPA Schemas
-class CapaCreate(BaseModel):
+class CapaCreate(SanitizedBaseModel):
     model_config = ConfigDict(extra="forbid")
     capa_id: str
     finding_id: str
@@ -294,7 +320,7 @@ class CapaCreate(BaseModel):
     due_date: Optional[date] = None
     status: Optional[str] = "Open"
 
-class CapaUpdate(BaseModel):
+class CapaUpdate(SanitizedBaseModel):
     model_config = ConfigDict(extra="forbid")
     finding_id: Optional[str] = None
     title: Optional[str] = None
@@ -319,7 +345,7 @@ class CapaResponse(BaseModel):
 
 
 # Evidence Schemas
-class EvidenceCreate(BaseModel):
+class EvidenceCreate(SanitizedBaseModel):
     model_config = ConfigDict(extra="forbid")
     evidence_id: str
     control_id: str
@@ -339,7 +365,7 @@ class EvidenceResponse(BaseModel):
 
 
 # Access Review Schemas
-class AccessReviewCreate(BaseModel):
+class AccessReviewCreate(SanitizedBaseModel):
     model_config = ConfigDict(extra="forbid")
     reviewer: str
     user_email: str
@@ -347,7 +373,7 @@ class AccessReviewCreate(BaseModel):
     decision: Optional[str] = None
     justification: Optional[str] = None
 
-class AccessReviewUpdate(BaseModel):
+class AccessReviewUpdate(SanitizedBaseModel):
     model_config = ConfigDict(extra="forbid")
     reviewer: Optional[str] = None
     user_email: Optional[str] = None
@@ -404,4 +430,3 @@ class DashboardSummaryResponse(BaseModel):
     
     open_capas_count: int
     total_capas_count: int
-
