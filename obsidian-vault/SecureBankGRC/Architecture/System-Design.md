@@ -1,5 +1,5 @@
 ---
-status: Core Complete
+status: Complete
 last_updated: 2026-05-28T01:10:00Z
 dependencies: []
 linked_phases: [Phase-01]

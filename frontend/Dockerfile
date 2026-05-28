@@ -1,21 +1,43 @@
-FROM node:18-alpine
-
+# Stage 1: Install dependencies
+FROM node:18-alpine AS deps
+# Install libc6-compat for packages that require native compilation
+RUN apk add --no-cache libc6-compat
 WORKDIR /app
-
-# Copy package json and install dependencies
 COPY package.json package-lock.json ./
 RUN npm ci
 
-# Copy the rest of the application code
+# Stage 2: Build stage
+FROM node:18-alpine AS builder
+WORKDIR /app
+COPY --from=deps /app/node_modules ./node_modules
 COPY . .
+# Disable Next.js telemetry during build
+ENV NEXT_TELEMETRY_DISABLED=1
+RUN npm run build
 
-# Run as non-root user
-RUN chown -R node:node /app
-USER node
+# Stage 3: Runner stage
+FROM node:18-alpine AS runner
+WORKDIR /app
+
+ENV NODE_ENV=production
+ENV NEXT_TELEMETRY_DISABLED=1
+
+# Create a secure non-root system user and group
+RUN addgroup --system --gid 1001 nodejs && \
+    adduser --system --uid 1001 nextjs
+
+# Copy essential runtime files and folders
+COPY --from=builder /app/public ./public
+
+# Copy the standalone build and static assets with proper ownership
+COPY --from=builder --chown=nextjs:nodejs /app/.next/standalone ./
+COPY --from=builder --chown=nextjs:nodejs /app/.next/static ./.next/static
+
+USER nextjs
 
 EXPOSE 3000
 
 ENV PORT 3000
 ENV HOSTNAME "0.0.0.0"
 
-CMD ["npm", "run", "dev"]
+CMD ["node", "server.js"]
