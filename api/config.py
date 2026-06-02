@@ -9,6 +9,8 @@ class Settings(BaseSettings):
     DATABASE_URL: str = "sqlite:///./grcdb.db"
     JWT_SECRET_KEY: str = "your-default-256-bit-key-must-change-in-production-12345"
     STRIPE_WEBHOOK_SECRET: str = "whsec_mock"
+    FLUTTERWAVE_SECRET_KEY: str = "FLWSECK_mock"
+    FLUTTERWAVE_WEBHOOK_SECRET: str = "flwsec_mock"
     SUPABASE_URL: Optional[str] = None
     SUPABASE_ANON_KEY: Optional[str] = None
     SUPABASE_SERVICE_ROLE_KEY: Optional[str] = None

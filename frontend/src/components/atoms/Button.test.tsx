@@ -22,6 +22,14 @@ describe("Button component", () => {
     expect(button).toHaveClass("text-primary");
   });
 
+  it("applies dark mode utility classes to button variants", () => {
+    render(<Button variant="primary">Primary</Button>);
+    expect(screen.getByRole("button", { name: /primary/i })).toHaveClass("dark:bg-slate-100");
+
+    render(<Button variant="secondary">Secondary Dark</Button>);
+    expect(screen.getByRole("button", { name: /secondary dark/i })).toHaveClass("dark:bg-slate-800");
+  });
+
   it("applies loading states, renders spinner and disables button", () => {
     render(<Button isLoading>Submit</Button>);
     const button = screen.getByRole("button");

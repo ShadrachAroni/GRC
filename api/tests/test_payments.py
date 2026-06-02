@@ -41,3 +41,40 @@ def test_stripe_webhook_missing_header():
     response = client.post("/api/payments/webhook", content=payload)
     assert response.status_code == 400
     assert response.json()["detail"] == "Missing stripe-signature header"
+
+
+def test_flutterwave_webhook_valid_signature():
+    payload = b'{"event": "charge.completed", "data": {"id": 12345}}'
+    headers = {
+        "verif-hash": settings.FLUTTERWAVE_WEBHOOK_SECRET
+    }
+    response = client.post("/api/payments/webhook/flutterwave", content=payload, headers=headers)
+    assert response.status_code == 200
+    assert response.json() == {"status": "success"}
+
+
+def test_flutterwave_webhook_invalid_signature():
+    payload = b'{"event": "charge.completed", "data": {"id": 12345}}'
+    headers = {
+        "verif-hash": "wrong-hash"
+    }
+    response = client.post("/api/payments/webhook/flutterwave", content=payload, headers=headers)
+    assert response.status_code == 400
+    assert response.json()["detail"] == "Invalid signature"
+
+
+def test_flutterwave_webhook_missing_header():
+    payload = b'{"event": "charge.completed", "data": {"id": 12345}}'
+    response = client.post("/api/payments/webhook/flutterwave", content=payload)
+    assert response.status_code == 400
+    assert response.json()["detail"] == "Missing verif-hash header"
+
+
+def test_flutterwave_webhook_invalid_payload():
+    payload = b'invalid-raw-non-json'
+    headers = {
+        "verif-hash": settings.FLUTTERWAVE_WEBHOOK_SECRET
+    }
+    response = client.post("/api/payments/webhook/flutterwave", content=payload, headers=headers)
+    assert response.status_code == 400
+    assert response.json()["detail"] == "Invalid payload"

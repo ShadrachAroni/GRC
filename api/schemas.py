@@ -480,3 +480,26 @@ class FrameworkSpecResponse(BaseModel):
     category: str = Field(..., description="The category classification (e.g. Cybersecurity, Privacy, Financial).")
     total_controls: int = Field(..., description="Number of baseline security controls defined in this framework.")
 
+
+# Notification Schemas
+class NotificationResponse(BaseModel):
+    """Response schema containing full details of a system alert or notification."""
+    model_config = ConfigDict(from_attributes=True, extra="forbid")
+    
+    id: int = Field(..., description="The unique auto-incrementing ID of the notification.")
+    tenant_id: str = Field(..., description="The tenant ID scoping this notification.")
+    title: str = Field(..., description="The summary title of the notification.")
+    message: str = Field(..., description="The detailed message content.")
+    severity: str = Field(..., description="The severity classification (Info, Medium, High, Critical).")
+    type: str = Field(..., description="The type classification (risk, compliance, incident, audit, system).")
+    is_read: bool = Field(..., description="Whether the user has marked the notification as read.")
+    channels: str = Field(..., description="Simulated channels used for delivery (e.g. toast,email,push).")
+    created_at: datetime = Field(..., description="Timestamp when the notification was generated.")
+
+class NotificationUpdate(SanitizedBaseModel):
+    """Schema for updating a notification's status."""
+    model_config = ConfigDict(extra="forbid")
+    
+    is_read: Optional[bool] = Field(None, description="The read status to apply to the notification.")
+
+

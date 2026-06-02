@@ -10,7 +10,9 @@ import { RiskHeatMap } from "@/components/molecules/RiskHeatMap";
 import { risksService, Risk, RiskCreatePayload } from "@/services/risks";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useAuthStore } from "@/context/AuthStore";
+import { useNotification } from "@/context/NotificationContext";
 import { cn } from "@/utils/cn";
+import { motion, AnimatePresence } from "framer-motion";
 import {
   AlertTriangle,
   Plus,
@@ -70,6 +72,7 @@ export default function RisksPage() {
   const queryClient = useQueryClient();
   const { user } = useAuthStore();
   const { t } = useTranslation();
+  const { showToast } = useNotification();
   const isReadOnly = user?.role === "Viewer";
 
   // Filter States
@@ -107,10 +110,12 @@ export default function RisksPage() {
     mutationFn: (payload: RiskCreatePayload) => risksService.createRisk(payload),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["risks"] });
+      showToast("Risk created successfully", "success");
       closeModal();
     },
     onError: (err: any) => {
       setApiError(err.message || "Failed to create risk");
+      showToast(err.message || "Failed to create risk", "error");
     },
   });
 
@@ -120,10 +125,12 @@ export default function RisksPage() {
       risksService.updateRisk(id, payload),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["risks"] });
+      showToast("Risk updated successfully", "success");
       closeModal();
     },
     onError: (err: any) => {
       setApiError(err.message || "Failed to update risk");
+      showToast(err.message || "Failed to update risk", "error");
     },
   });
 
@@ -132,9 +139,10 @@ export default function RisksPage() {
     mutationFn: (id: string) => risksService.deleteRisk(id),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["risks"] });
+      showToast("Risk deleted successfully", "success");
     },
     onError: (err: any) => {
-      alert(err.message || "Failed to delete risk");
+      showToast(err.message || "Failed to delete risk", "error");
     },
   });
 
@@ -374,7 +382,7 @@ export default function RisksPage() {
                               size="sm"
                               leftIcon={<Edit2 className="w-3.5 h-3.5" />}
                               onClick={() => openEditModal(risk)}
-                              disabled={isReadOnly}
+                              disabled={isReadOnly || (deleteMutation.isPending && deleteMutation.variables === risk.risk_id)}
                             >
                               {t('risks.table.edit')}
                             </Button>
@@ -384,7 +392,8 @@ export default function RisksPage() {
                               className="text-rose-500 border-rose-100 hover:bg-rose-50 dark:border-rose-950/40 dark:hover:bg-rose-950/20"
                               leftIcon={<Trash2 className="w-3.5 h-3.5" />}
                               onClick={() => handleDelete(risk.risk_id)}
-                              disabled={isReadOnly}
+                              disabled={isReadOnly || (deleteMutation.isPending && deleteMutation.variables === risk.risk_id)}
+                              isLoading={deleteMutation.isPending && deleteMutation.variables === risk.risk_id}
                             >
                               {t('risks.table.delete')}
                             </Button>
@@ -404,192 +413,203 @@ export default function RisksPage() {
             </div>
           )}
         </div>
-      </div>
+      </div>      {/* CREATE & EDIT MODAL */}
+      <AnimatePresence>
+        {(isCreateModalOpen || editingRisk) && (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="fixed inset-0 bg-slate-950/60 backdrop-blur-sm z-50 flex items-center justify-center p-4"
+          >
+            <motion.div
+              initial={{ scale: 0.95, opacity: 0, y: 12 }}
+              animate={{ scale: 1, opacity: 1, y: 0 }}
+              exit={{ scale: 0.95, opacity: 0, y: 10 }}
+              transition={{ type: "spring", stiffness: 300, damping: 25 }}
+              className="bg-white dark:bg-slate-900 border border-surface-border dark:border-slate-800 rounded-lg shadow-xl max-w-lg w-full overflow-hidden flex flex-col max-h-[90vh]"
+            >
+              {/* Modal Header */}
+              <div className="p-4 border-b border-surface-border dark:border-slate-800 flex items-center justify-between">
+                <h4 className="text-headline-sm font-bold text-primary dark:text-slate-100 flex items-center gap-2">
+                  <AlertTriangle className="w-5 h-5 text-warning-amber" />
+                  {editingRisk ? t('risks.modal.editTitle', { riskId: editingRisk.risk_id }) : t('risks.modal.createTitle')}
+                </h4>
+                <button
+                  onClick={closeModal}
+                  className="p-1 rounded-md text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800 hover:text-slate-600"
+                  title="Close"
+                  aria-label="Close"
+                >
+                  <X className="w-5 h-5" />
+                </button>
+              </div>
 
-      {/* CREATE & EDIT MODAL */}
-      {(isCreateModalOpen || editingRisk) && (
-        <div className="fixed inset-0 bg-slate-950/60 backdrop-blur-sm z-50 flex items-center justify-center p-4">
-          <div className="bg-white dark:bg-slate-900 border border-surface-border dark:border-slate-800 rounded-lg shadow-xl max-w-lg w-full overflow-hidden flex flex-col max-h-[90vh]">
-            {/* Modal Header */}
-            <div className="p-4 border-b border-surface-border dark:border-slate-800 flex items-center justify-between">
-              <h4 className="text-headline-sm font-bold text-primary dark:text-slate-100 flex items-center gap-2">
-                <AlertTriangle className="w-5 h-5 text-warning-amber" />
-                {editingRisk ? t('risks.modal.editTitle', { riskId: editingRisk.risk_id }) : t('risks.modal.createTitle')}
-              </h4>
-              <button
-                onClick={closeModal}
-                className="p-1 rounded-md text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800 hover:text-slate-600"
-                title="Close"
-                aria-label="Close"
-              >
-                <X className="w-5 h-5" />
-              </button>
-            </div>
+              {/* Modal Form Body */}
+              <form onSubmit={handleSubmit} className="p-6 space-y-4 overflow-y-auto flex-1">
+                {apiError && (
+                  <div className="bg-rose-500/10 border border-rose-500/20 text-danger-rose dark:text-rose-400 p-3 rounded text-body-sm">
+                    {apiError}
+                  </div>
+                )}
 
-            {/* Modal Form Body */}
-            <form onSubmit={handleSubmit} className="p-6 space-y-4 overflow-y-auto flex-1">
-              {apiError && (
-                <div className="bg-rose-500/10 border border-rose-500/20 text-danger-rose dark:text-rose-400 p-3 rounded text-body-sm">
-                  {apiError}
+                <div className="grid grid-cols-2 gap-4">
+                  <Input
+                    label="Risk ID"
+                    placeholder="e.g. R-101"
+                    value={formFields.risk_id}
+                    onChange={(e) => handleFieldChange("risk_id", e.target.value)}
+                    error={formErrors.risk_id}
+                    disabled={!!editingRisk}
+                    helperText="Unique ID format: R-NUMBER"
+                    required
+                  />
+
+                  <Input
+                    label="Compliance Asset"
+                    placeholder="e.g. Core Database Server"
+                    value={formFields.asset}
+                    onChange={(e) => handleFieldChange("asset", e.target.value)}
+                    error={formErrors.asset}
+                    required
+                  />
                 </div>
-              )}
 
-              <div className="grid grid-cols-2 gap-4">
                 <Input
-                  label="Risk ID"
-                  placeholder="e.g. R-101"
-                  value={formFields.risk_id}
-                  onChange={(e) => handleFieldChange("risk_id", e.target.value)}
-                  error={formErrors.risk_id}
-                  disabled={!!editingRisk}
-                  helperText="Unique ID format: R-NUMBER"
+                  label="Threat Description"
+                  placeholder="Describe the threat (e.g. Unauthorized read access via SQLi)"
+                  value={formFields.threat}
+                  onChange={(e) => handleFieldChange("threat", e.target.value)}
+                  error={formErrors.threat}
                   required
                 />
 
-                <Input
-                  label="Compliance Asset"
-                  placeholder="e.g. Core Database Server"
-                  value={formFields.asset}
-                  onChange={(e) => handleFieldChange("asset", e.target.value)}
-                  error={formErrors.asset}
-                  required
-                />
-              </div>
+                <div className="grid grid-cols-2 gap-4">
+                  {/* Likelihood Select */}
+                  <div className="flex flex-col gap-1.5 text-left">
+                    <label
+                      htmlFor="likelihood-select"
+                      className="text-body-sm font-semibold text-secondary dark:text-slate-300"
+                    >
+                      {t('risks.form.likelihoodLabel')}
+                    </label>
+                    <select
+                      id="likelihood-select"
+                      value={formFields.likelihood}
+                      onChange={(e) => handleFieldChange("likelihood", parseInt(e.target.value))}
+                      className="w-full px-3 py-1.5 h-10 bg-white dark:bg-slate-900 border border-surface-border dark:border-slate-800 rounded-md text-body-md text-primary dark:text-slate-100 focus:outline-none focus:ring-1 focus:ring-primary"
+                    >
+                      {[1, 2, 3, 4, 5].map((val) => (
+                        <option key={val} value={val}>
+                          {val} - {LIKELIHOOD_LABELS[val]}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
 
-              <Input
-                label="Threat Description"
-                placeholder="Describe the threat (e.g. Unauthorized read access via SQLi)"
-                value={formFields.threat}
-                onChange={(e) => handleFieldChange("threat", e.target.value)}
-                error={formErrors.threat}
-                required
-              />
-
-              <div className="grid grid-cols-2 gap-4">
-                {/* Likelihood Select */}
-                <div className="flex flex-col gap-1.5 text-left">
-                  <label
-                    htmlFor="likelihood-select"
-                    className="text-body-sm font-semibold text-secondary dark:text-slate-300"
-                  >
-                    {t('risks.form.likelihoodLabel')}
-                  </label>
-                  <select
-                    id="likelihood-select"
-                    value={formFields.likelihood}
-                    onChange={(e) => handleFieldChange("likelihood", parseInt(e.target.value))}
-                    className="w-full px-3 py-1.5 h-10 bg-white dark:bg-slate-900 border border-surface-border dark:border-slate-800 rounded-md text-body-md text-primary dark:text-slate-100 focus:outline-none focus:ring-1 focus:ring-primary"
-                  >
-                    {[1, 2, 3, 4, 5].map((val) => (
-                      <option key={val} value={val}>
-                        {val} - {LIKELIHOOD_LABELS[val]}
-                      </option>
-                    ))}
-                  </select>
+                  {/* Impact Select */}
+                  <div className="flex flex-col gap-1.5 text-left">
+                    <label
+                      htmlFor="impact-select"
+                      className="text-body-sm font-semibold text-secondary dark:text-slate-300"
+                    >
+                      {t('risks.form.impactLabel')}
+                    </label>
+                    <select
+                      id="impact-select"
+                      value={formFields.impact}
+                      onChange={(e) => handleFieldChange("impact", parseInt(e.target.value))}
+                      className="w-full px-3 py-1.5 h-10 bg-white dark:bg-slate-900 border border-surface-border dark:border-slate-800 rounded-md text-body-md text-primary dark:text-slate-100 focus:outline-none focus:ring-1 focus:ring-primary"
+                    >
+                      {[1, 2, 3, 4, 5].map((val) => (
+                        <option key={val} value={val}>
+                          {val} - {IMPACT_LABELS[val]}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
                 </div>
 
-                {/* Impact Select */}
+                {/* Mitigation Textarea */}
                 <div className="flex flex-col gap-1.5 text-left">
                   <label
-                    htmlFor="impact-select"
+                    htmlFor="mitigation-textarea"
                     className="text-body-sm font-semibold text-secondary dark:text-slate-300"
                   >
-                    {t('risks.form.impactLabel')}
+                    {t('risks.form.mitigationLabel')}
                   </label>
-                  <select
-                    id="impact-select"
-                    value={formFields.impact}
-                    onChange={(e) => handleFieldChange("impact", parseInt(e.target.value))}
-                    className="w-full px-3 py-1.5 h-10 bg-white dark:bg-slate-900 border border-surface-border dark:border-slate-800 rounded-md text-body-md text-primary dark:text-slate-100 focus:outline-none focus:ring-1 focus:ring-primary"
-                  >
-                    {[1, 2, 3, 4, 5].map((val) => (
-                      <option key={val} value={val}>
-                        {val} - {IMPACT_LABELS[val]}
-                      </option>
-                    ))}
-                  </select>
+                  <textarea
+                    id="mitigation-textarea"
+                    value={formFields.mitigation}
+                    onChange={(e) => handleFieldChange("mitigation", e.target.value)}
+                    placeholder={t('risks.form.mitigationPlaceholder')}
+                    rows={3}
+                    className="w-full p-3 bg-white dark:bg-slate-900 border border-surface-border dark:border-slate-800 rounded-md text-body-md text-primary dark:text-slate-100 placeholder-slate-400 focus:outline-none focus:ring-1 focus:ring-primary"
+                  />
                 </div>
-              </div>
 
-              {/* Mitigation Textarea */}
-              <div className="flex flex-col gap-1.5 text-left">
-                <label
-                  htmlFor="mitigation-textarea"
-                  className="text-body-sm font-semibold text-secondary dark:text-slate-300"
-                >
-                  {t('risks.form.mitigationLabel')}
-                </label>
-                <textarea
-                  id="mitigation-textarea"
-                  value={formFields.mitigation}
-                  onChange={(e) => handleFieldChange("mitigation", e.target.value)}
-                  placeholder={t('risks.form.mitigationPlaceholder')}
-                  rows={3}
-                  className="w-full p-3 bg-white dark:bg-slate-900 border border-surface-border dark:border-slate-800 rounded-md text-body-md text-primary dark:text-slate-100 placeholder-slate-400 focus:outline-none focus:ring-1 focus:ring-primary"
-                />
-              </div>
-
-              <div className="grid grid-cols-2 gap-4">
-                <Input
-                  label="Risk Owner"
-                  placeholder="e.g. Alice Carter"
-                  value={formFields.owner}
-                  onChange={(e) => handleFieldChange("owner", e.target.value)}
-                  leftIcon={<UserIcon className="w-4 h-4" />}
-                />
-                <Input
-                  label="Department"
-                  placeholder="e.g. Security"
-                  value={formFields.department}
-                  onChange={(e) => handleFieldChange("department", e.target.value)}
-                  leftIcon={<Building className="w-4 h-4" />}
-                />
-              </div>
-
-              <div className="grid grid-cols-2 gap-4">
-                <Input
-                  type="date"
-                  label="Next Review Date"
-                  value={formFields.review_date}
-                  onChange={(e) => handleFieldChange("review_date", e.target.value)}
-                  leftIcon={<Calendar className="w-4 h-4" />}
-                />
-
-                <div className="flex flex-col gap-1.5 text-left">
-                  <label
-                    htmlFor="status-select"
-                    className="text-body-sm font-semibold text-secondary dark:text-slate-300"
-                  >
-                    {t('risks.form.statusLabel')}
-                  </label>
-                  <select
-                    id="status-select"
-                    value={formFields.status}
-                    onChange={(e) => handleFieldChange("status", e.target.value)}
-                    className="w-full px-3 py-1.5 h-10 bg-white dark:bg-slate-900 border border-surface-border dark:border-slate-800 rounded-md text-body-md text-primary dark:text-slate-100 focus:outline-none focus:ring-1 focus:ring-primary"
-                  >
-                    <option value="Open">{t('risks.form.statusOpen')}</option>
-                    <option value="Mitigated">{t('risks.form.statusMitigated')}</option>
-                  </select>
+                <div className="grid grid-cols-2 gap-4">
+                  <Input
+                    label="Risk Owner"
+                    placeholder="e.g. Alice Carter"
+                    value={formFields.owner}
+                    onChange={(e) => handleFieldChange("owner", e.target.value)}
+                    leftIcon={<UserIcon className="w-4 h-4" />}
+                  />
+                  <Input
+                    label="Department"
+                    placeholder="e.g. Security"
+                    value={formFields.department}
+                    onChange={(e) => handleFieldChange("department", e.target.value)}
+                    leftIcon={<Building className="w-4 h-4" />}
+                  />
                 </div>
-              </div>
 
-              {/* Modal Footer */}
-              <div className="pt-4 border-t border-surface-border dark:border-slate-800 flex items-center justify-end gap-3 bg-white dark:bg-slate-900">
-                <Button variant="secondary" onClick={closeModal}>
-                  {t('risks.modal.cancel')}
-                </Button>
-                <Button
-                  type="submit"
-                  isLoading={createMutation.isPending || updateMutation.isPending}
-                >
-                  {editingRisk ? t('risks.modal.saveChanges') : t('risks.modal.createRisk')}
-                </Button>
-              </div>
-            </form>
-          </div>
-        </div>
-      )}
+                <div className="grid grid-cols-2 gap-4">
+                  <Input
+                    type="date"
+                    label="Next Review Date"
+                    value={formFields.review_date}
+                    onChange={(e) => handleFieldChange("review_date", e.target.value)}
+                    leftIcon={<Calendar className="w-4 h-4" />}
+                  />
+
+                  <div className="flex flex-col gap-1.5 text-left">
+                    <label
+                      htmlFor="status-select"
+                      className="text-body-sm font-semibold text-secondary dark:text-slate-300"
+                    >
+                      {t('risks.form.statusLabel')}
+                    </label>
+                    <select
+                      id="status-select"
+                      value={formFields.status}
+                      onChange={(e) => handleFieldChange("status", e.target.value)}
+                      className="w-full px-3 py-1.5 h-10 bg-white dark:bg-slate-900 border border-surface-border dark:border-slate-800 rounded-md text-body-md text-primary dark:text-slate-100 focus:outline-none focus:ring-1 focus:ring-primary"
+                    >
+                      <option value="Open">{t('risks.form.statusOpen')}</option>
+                      <option value="Mitigated">{t('risks.form.statusMitigated')}</option>
+                    </select>
+                  </div>
+                </div>
+
+                {/* Modal Footer */}
+                <div className="pt-4 border-t border-surface-border dark:border-slate-800 flex items-center justify-end gap-3 bg-white dark:bg-slate-900">
+                  <Button variant="secondary" onClick={closeModal}>
+                    {t('risks.modal.cancel')}
+                  </Button>
+                  <Button
+                    type="submit"
+                    isLoading={createMutation.isPending || updateMutation.isPending}
+                  >
+                    {editingRisk ? t('risks.modal.saveChanges') : t('risks.modal.createRisk')}
+                  </Button>
+                </div>
+              </form>
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
     </PageLayout>
   );
 }

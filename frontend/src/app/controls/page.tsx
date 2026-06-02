@@ -7,8 +7,10 @@ import { PageLayout } from "@/components/templates/PageLayout";
 import { Button } from "@/components/atoms/Button";
 import { Badge } from "@/components/atoms/Badge";
 import { useAuthStore } from "@/context/AuthStore";
+import { useNotification } from "@/context/NotificationContext";
 import { controlsService, Control, Evidence } from "@/services/controls";
 import { cn } from "@/utils/cn";
+import { motion, AnimatePresence } from "framer-motion";
 import {
   ShieldCheck,
   Search,
@@ -31,6 +33,7 @@ export default function ControlsPage() {
   const queryClient = useQueryClient();
   const { user } = useAuthStore();
   const { t } = useTranslation();
+  const { showToast } = useNotification();
   const isReadOnly = user?.role === "Viewer";
 
   // State Management
@@ -69,12 +72,13 @@ export default function ControlsPage() {
       controlsService.updateControl(controlId, { status }),
     onSuccess: (updatedControl) => {
       queryClient.invalidateQueries({ queryKey: ["controls"] });
+      showToast(`Control ${updatedControl.control_id} status updated to ${updatedControl.status}`, "success");
       if (selectedControl?.control_id === updatedControl.control_id) {
         setSelectedControl(updatedControl);
       }
     },
     onError: (err: any) => {
-      alert(err.message || "Failed to update control status");
+      showToast(err.message || "Failed to update control status", "error");
     },
   });
 
@@ -84,6 +88,7 @@ export default function ControlsPage() {
       controlsService.uploadEvidence(controlId, file),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["evidence", selectedControl?.control_id] });
+      showToast("Evidence file uploaded successfully", "success");
       setUploadSuccess(true);
       setUploadError(null);
       setIsUploading(false);
@@ -91,6 +96,7 @@ export default function ControlsPage() {
     },
     onError: (err: any) => {
       setUploadError(err.message || "Failed to upload file");
+      showToast(err.message || "Failed to upload file", "error");
       setIsUploading(false);
     },
   });
@@ -101,13 +107,15 @@ export default function ControlsPage() {
   };
 
   const handleFileValidationAndUpload = (file: File) => {
-    if (!selectedControl) return;
+    if (!selectedControl || isUploading) return;
     setUploadError(null);
     setUploadSuccess(false);
 
     // 1. Check size limit (< 1MB)
     if (file.size > 1024 * 1024) {
-      setUploadError("File too large. Maximum size allowed is 1MB.");
+      const errorMsg = "File too large. Maximum size allowed is 1MB.";
+      setUploadError(errorMsg);
+      showToast(errorMsg, "warning");
       return;
     }
 
@@ -115,7 +123,9 @@ export default function ControlsPage() {
     const allowedExtensions = [".pdf", ".png", ".jpg", ".jpeg", ".csv"];
     const fileExtension = file.name.substring(file.name.lastIndexOf(".")).toLowerCase();
     if (!allowedExtensions.includes(fileExtension)) {
-      setUploadError("Invalid file type. Supported formats: PDF, PNG, JPG, CSV.");
+      const errorMsg = "Invalid file type. Supported formats: PDF, PNG, JPG, CSV.";
+      setUploadError(errorMsg);
+      showToast(errorMsg, "warning");
       return;
     }
 
@@ -144,8 +154,9 @@ export default function ControlsPage() {
         evidenceItem.evidence_id,
         evidenceItem.file_name
       );
+      showToast("Download started successfully", "success");
     } catch (err: any) {
-      alert(err.message || "Failed to download file");
+      showToast(err.message || "Failed to download file", "error");
     }
   };
 
@@ -351,8 +362,9 @@ export default function ControlsPage() {
                           {!isReadOnly ? (
                             <select
                               value={control.status}
+                              disabled={updateStatusMutation.isPending && updateStatusMutation.variables?.controlId === control.control_id}
                               onChange={(e) => handleStatusChange(control.control_id, e.target.value)}
-                              className="px-2 py-0.5 border border-surface-border dark:border-slate-700 bg-white dark:bg-slate-900 text-body-sm rounded focus:outline-none focus:ring-1 focus:ring-primary font-medium"
+                              className="px-2 py-0.5 border border-surface-border dark:border-slate-700 bg-white dark:bg-slate-900 text-body-sm rounded focus:outline-none focus:ring-1 focus:ring-primary font-medium disabled:opacity-50"
                               aria-label={`Change status for ${control.control_id}`}
                             >
                               <option value="Not Started">{t("controls.stats.notStarted")}</option>
@@ -400,206 +412,235 @@ export default function ControlsPage() {
       </div>
 
       {/* MANAGE CONTROL & EVIDENCE MODAL */}
-      {selectedControl && (
-        <div className="fixed inset-0 bg-slate-950/60 backdrop-blur-sm z-50 flex items-center justify-center p-4">
-          <div className="bg-white dark:bg-slate-900 border border-surface-border dark:border-slate-800 rounded-lg shadow-xl max-w-xl w-full overflow-hidden flex flex-col max-h-[90vh]">
-            {/* Header */}
-            <div className="p-4 border-b border-surface-border dark:border-slate-800 flex items-center justify-between bg-slate-50 dark:bg-slate-900/60">
-              <h4 className="text-headline-sm font-bold text-primary dark:text-slate-100 flex items-center gap-2">
-                <ShieldCheck className="w-5 h-5 text-success-emerald" />
-                {t("controls.modal.title", { controlId: selectedControl.control_id })}
-              </h4>
-              <button
-                onClick={() => setSelectedControl(null)}
-                className="p-1 rounded-md text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800 hover:text-slate-600 focus:ring-2 focus:ring-primary focus:outline-none"
-                title="Close Modal"
-                aria-label="Close Modal"
-              >
-                <X className="w-5 h-5" />
-              </button>
-            </div>
-
-            {/* Modal Content */}
-            <div className="p-6 space-y-5 overflow-y-auto flex-1 text-left">
-              {/* Properties */}
-              <div className="grid grid-cols-2 gap-4 bg-slate-50 dark:bg-slate-800/20 p-3.5 rounded border border-surface-border dark:border-slate-800/40">
-                <div>
-                  <span className="text-body-xs font-semibold text-secondary dark:text-slate-400 uppercase tracking-wider block">
-                    {t("controls.modal.framework")}
-                  </span>
-                  <span className="text-body-sm font-bold text-primary dark:text-slate-200">
-                    {selectedControl.framework}
-                  </span>
-                </div>
-                <div>
-                  <span className="text-body-xs font-semibold text-secondary dark:text-slate-400 uppercase tracking-wider block">
-                    {t("controls.table.status")}
-                  </span>
-                  <span className="mt-1 block">{getStatusBadge(selectedControl.status)}</span>
-                </div>
+      {/* MANAGE CONTROL & EVIDENCE MODAL */}
+      <AnimatePresence>
+        {selectedControl && (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="fixed inset-0 bg-slate-950/60 backdrop-blur-sm z-50 flex items-center justify-center p-4"
+          >
+            <motion.div
+              initial={{ scale: 0.95, opacity: 0, y: 12 }}
+              animate={{ scale: 1, opacity: 1, y: 0 }}
+              exit={{ scale: 0.95, opacity: 0, y: 10 }}
+              transition={{ type: "spring", stiffness: 300, damping: 25 }}
+              className="bg-white dark:bg-slate-900 border border-surface-border dark:border-slate-800 rounded-lg shadow-xl max-w-xl w-full overflow-hidden flex flex-col max-h-[90vh]"
+            >
+              {/* Header */}
+              <div className="p-4 border-b border-surface-border dark:border-slate-800 flex items-center justify-between bg-slate-50 dark:bg-slate-900/60">
+                <h4 className="text-headline-sm font-bold text-primary dark:text-slate-100 flex items-center gap-2">
+                  <ShieldCheck className="w-5 h-5 text-success-emerald" />
+                  {t("controls.modal.title", { controlId: selectedControl.control_id })}
+                </h4>
+                <button
+                  onClick={() => setSelectedControl(null)}
+                  className="p-1 rounded-md text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800 hover:text-slate-600 focus:ring-2 focus:ring-primary focus:outline-none"
+                  title="Close Modal"
+                  aria-label="Close Modal"
+                >
+                  <X className="w-5 h-5" />
+                </button>
               </div>
 
-              {/* Description */}
-              <div>
-                <span className="text-body-xs font-semibold text-secondary dark:text-slate-400 uppercase tracking-wider block mb-1">
-                  {t("controls.table.description")}
-                </span>
-                <p className="text-body-sm text-primary dark:text-slate-200 leading-relaxed">
-                  {selectedControl.description}
-                </p>
-              </div>
+              {/* Modal Content */}
+              <div className="p-6 space-y-5 overflow-y-auto flex-1 text-left">
+                {/* Properties */}
+                <div className="grid grid-cols-2 gap-4 bg-slate-50 dark:bg-slate-800/20 p-3.5 rounded border border-surface-border dark:border-slate-800/40">
+                  <div>
+                    <span className="text-body-xs font-semibold text-secondary dark:text-slate-400 uppercase tracking-wider block">
+                      {t("controls.modal.framework")}
+                    </span>
+                    <span className="text-body-sm font-bold text-primary dark:text-slate-200">
+                      {selectedControl.framework}
+                    </span>
+                  </div>
+                  <div>
+                    <span className="text-body-xs font-semibold text-secondary dark:text-slate-400 uppercase tracking-wider block">
+                      {t("controls.table.status")}
+                    </span>
+                    <span className="mt-1 block">{getStatusBadge(selectedControl.status)}</span>
+                  </div>
+                </div>
 
-              {/* Policy Mapping */}
-              {selectedControl.company_control && (
+                {/* Description */}
                 <div>
                   <span className="text-body-xs font-semibold text-secondary dark:text-slate-400 uppercase tracking-wider block mb-1">
-                    {t("controls.modal.policy")}
+                    {t("controls.table.description")}
                   </span>
-                  <p className="text-body-sm text-primary dark:text-slate-300 bg-slate-50 dark:bg-slate-800/30 p-3 rounded italic border-l-2 border-primary dark:border-slate-600">
-                    {selectedControl.company_control}
+                  <p className="text-body-sm text-primary dark:text-slate-200 leading-relaxed">
+                    {selectedControl.description}
                   </p>
                 </div>
-              )}
 
-              {/* Evidence Required */}
-              {selectedControl.evidence_required && (
-                <div>
-                  <span className="text-body-xs font-semibold text-secondary dark:text-slate-400 uppercase tracking-wider block mb-1">
-                    {t("controls.modal.evidenceRequired")}
-                  </span>
-                  <p className="text-body-sm text-secondary dark:text-slate-400">
-                    {selectedControl.evidence_required}
-                  </p>
-                </div>
-              )}
-
-              {/* List of Evidence */}
-              <div className="border-t border-surface-border dark:border-slate-800 pt-4">
-                <span className="text-body-xs font-semibold text-secondary dark:text-slate-400 uppercase tracking-wider block mb-3">
-                  {t("controls.modal.uploadedEvidence")}
-                </span>
-
-                {isEvidenceLoading ? (
-                  <div className="py-4 text-center">
-                    <div className="w-5 h-5 border-2 border-primary dark:border-white border-t-transparent rounded-full animate-spin mx-auto" />
+                {/* Policy Mapping */}
+                {selectedControl.company_control && (
+                  <div>
+                    <span className="text-body-xs font-semibold text-secondary dark:text-slate-400 uppercase tracking-wider block mb-1">
+                      {t("controls.modal.policy")}
+                    </span>
+                    <p className="text-body-sm text-primary dark:text-slate-305 bg-slate-50 dark:bg-slate-800/30 p-3 rounded italic border-l-2 border-primary dark:border-slate-600">
+                      {selectedControl.company_control}
+                    </p>
                   </div>
-                ) : evidence.length > 0 ? (
-                  <div className="space-y-2 max-h-48 overflow-y-auto">
-                    {evidence.map((item) => (
-                      <div
-                        key={item.evidence_id}
-                        className="flex items-center justify-between p-2.5 bg-white dark:bg-slate-800 border border-surface-border dark:border-slate-800 rounded-md hover:bg-slate-50 dark:hover:bg-slate-800/80 transition-colors"
-                      >
-                        <div className="flex items-center gap-2 min-w-0">
-                          <FileText className="w-4 h-4 text-slate-400 flex-shrink-0" />
-                          <div className="min-w-0">
-                            <p className="text-body-sm font-semibold truncate text-primary dark:text-slate-200" title={item.file_name}>
-                              {item.file_name}
-                            </p>
-                            <p className="text-[10px] text-secondary dark:text-slate-400">
-                              By {item.uploaded_by} on {new Date(item.uploaded_at).toLocaleDateString()}
-                            </p>
-                          </div>
-                        </div>
-                        <Button
-                          variant="secondary"
-                          size="sm"
-                          leftIcon={<Download className="w-3.5 h-3.5" />}
-                          onClick={() => handleDownload(item)}
-                        >
-                          Download
-                        </Button>
-                      </div>
-                    ))}
-                  </div>
-                ) : (
-                  <p className="text-body-sm text-secondary dark:text-slate-500 py-3 text-center border border-dashed border-surface-border dark:border-slate-800 rounded">
-                    {t("controls.modal.noEvidence")}
-                  </p>
                 )}
-              </div>
 
-              {/* Upload Dropzone */}
-              <div className="border-t border-surface-border dark:border-slate-800 pt-4">
-                <span className="text-body-xs font-semibold text-secondary dark:text-slate-400 uppercase tracking-wider block mb-3">
-                  {t("controls.modal.uploadTitle")}
-                </span>
-
-                {isReadOnly ? (
-                  <div className="bg-amber-500/10 border border-amber-500/20 text-warning-amber dark:text-amber-400 p-3 rounded text-body-sm flex items-center gap-2">
-                    <Info className="w-4 h-4" />
-                    {t("controls.modal.viewerWarning")}
+                {/* Evidence Required */}
+                {selectedControl.evidence_required && (
+                  <div>
+                    <span className="text-body-xs font-semibold text-secondary dark:text-slate-400 uppercase tracking-wider block mb-1">
+                      {t("controls.modal.evidenceRequired")}
+                    </span>
+                    <p className="text-body-sm text-secondary dark:text-slate-400">
+                      {selectedControl.evidence_required}
+                    </p>
                   </div>
-                ) : (
-                  <div className="space-y-3">
-                    <div
-                      onDragOver={(e) => {
-                        e.preventDefault();
-                        setDragActive(true);
-                      }}
-                      onDragLeave={() => setDragActive(false)}
-                      onDrop={handleFileDrop}
-                      onClick={() => fileInputRef.current?.click()}
-                      onKeyDown={(e) => {
-                        if (e.key === "Enter" || e.key === " ") {
-                          e.preventDefault();
-                          fileInputRef.current?.click();
-                        }
-                      }}
-                      tabIndex={0}
-                      role="button"
-                      aria-label="Upload evidence file"
-                      className={cn(
-                        "border-2 border-dashed rounded-lg p-6 text-center cursor-pointer transition-all duration-150 flex flex-col items-center justify-center gap-2 focus:ring-2 focus:ring-primary focus:outline-none",
-                        dragActive
-                          ? "border-primary dark:border-white bg-slate-50 dark:bg-slate-800/40"
-                          : "border-surface-border dark:border-slate-800 hover:bg-slate-50 dark:hover:bg-slate-850"
-                      )}
-                    >
-                      <UploadCloud className="w-8 h-8 text-slate-450" />
-                      <p className="text-body-sm text-secondary dark:text-slate-300 font-medium">
-                        {t("controls.modal.uploadText")}
-                      </p>
+                )}
+
+                {/* List of Evidence */}
+                <div className="border-t border-surface-border dark:border-slate-800 pt-4">
+                  <span className="text-body-xs font-semibold text-secondary dark:text-slate-400 uppercase tracking-wider block mb-3">
+                    {t("controls.modal.uploadedEvidence")}
+                  </span>
+
+                  {isEvidenceLoading ? (
+                    <div className="py-4 text-center">
+                      <div className="w-5 h-5 border-2 border-primary dark:border-white border-t-transparent rounded-full animate-spin mx-auto" />
                     </div>
-                    <input
-                      type="file"
-                      ref={fileInputRef}
-                      onChange={handleFileSelect}
-                      className="hidden"
-                      accept=".pdf,.png,.jpg,.jpeg,.csv"
-                      aria-label={t("controls.modal.uploadTitle")}
-                    />
+                  ) : evidence.length > 0 ? (
+                    <div className="space-y-2 max-h-48 overflow-y-auto">
+                      {evidence.map((item) => (
+                        <div
+                          key={item.evidence_id}
+                          className="flex items-center justify-between p-2.5 bg-white dark:bg-slate-800 border border-surface-border dark:border-slate-800 rounded-md hover:bg-slate-50 dark:hover:bg-slate-800/80 transition-colors"
+                        >
+                          <div className="flex items-center gap-2 min-w-0">
+                            <FileText className="w-4 h-4 text-slate-400 flex-shrink-0" />
+                            <div className="min-w-0">
+                              <p className="text-body-sm font-semibold truncate text-primary dark:text-slate-200" title={item.file_name}>
+                                {item.file_name}
+                              </p>
+                              <p className="text-[10px] text-secondary dark:text-slate-400">
+                                By {item.uploaded_by} on {new Date(item.uploaded_at).toLocaleDateString()}
+                              </p>
+                            </div>
+                          </div>
+                          <Button
+                            variant="secondary"
+                            size="sm"
+                            leftIcon={<Download className="w-3.5 h-3.5" />}
+                            onClick={() => handleDownload(item)}
+                          >
+                            Download
+                          </Button>
+                        </div>
+                      ))}
+                    </div>
+                  ) : (
+                    <p className="text-body-sm text-secondary dark:text-slate-550 py-3 text-center border border-dashed border-surface-border dark:border-slate-800 rounded">
+                      {t("controls.modal.noEvidence")}
+                    </p>
+                  )}
+                </div>
 
-                    {uploadError && (
-                      <div className="bg-rose-500/10 border border-rose-500/20 text-danger-rose dark:text-rose-400 p-3 rounded text-body-sm">
-                        {uploadError}
-                      </div>
-                    )}
+                {/* Upload Dropzone */}
+                <div className="border-t border-surface-border dark:border-slate-800 pt-4">
+                  <span className="text-body-xs font-semibold text-secondary dark:text-slate-400 uppercase tracking-wider block mb-3">
+                    {t("controls.modal.uploadTitle")}
+                  </span>
 
-                    {uploadSuccess && (
-                      <div className="bg-emerald-550/10 border border-emerald-500/20 text-success-emerald p-3 rounded text-body-sm font-semibold">
-                        {t("controls.modal.uploadSuccess")}
+                  {isReadOnly ? (
+                    <div className="bg-amber-500/10 border border-amber-500/20 text-warning-amber dark:text-amber-400 p-3 rounded text-body-sm flex items-center gap-2">
+                      <Info className="w-4 h-4" />
+                      {t("controls.modal.viewerWarning")}
+                    </div>
+                  ) : (
+                    <div className="space-y-3">
+                      <div
+                        onDragOver={(e) => {
+                          e.preventDefault();
+                          if (isUploading) return;
+                          setDragActive(true);
+                        }}
+                        onDragLeave={() => setDragActive(false)}
+                        onDrop={(e) => {
+                          if (isUploading) {
+                            e.preventDefault();
+                            return;
+                          }
+                          handleFileDrop(e);
+                        }}
+                        onClick={() => {
+                          if (isUploading) return;
+                          fileInputRef.current?.click();
+                        }}
+                        onKeyDown={(e) => {
+                          if (isUploading) return;
+                          if (e.key === "Enter" || e.key === " ") {
+                            e.preventDefault();
+                            fileInputRef.current?.click();
+                          }
+                        }}
+                        tabIndex={isUploading ? -1 : 0}
+                        role="button"
+                        aria-label="Upload evidence file"
+                        className={cn(
+                          "border-2 border-dashed rounded-lg p-6 text-center transition-all duration-150 flex flex-col items-center justify-center gap-2 focus:ring-2 focus:ring-primary focus:outline-none",
+                          isUploading
+                            ? "border-surface-border dark:border-slate-800 bg-slate-50/50 dark:bg-slate-800/20 cursor-not-allowed opacity-60"
+                            : "cursor-pointer border-surface-border dark:border-slate-800 hover:bg-slate-50 dark:hover:bg-slate-850",
+                          dragActive && !isUploading
+                            ? "border-primary dark:border-white bg-slate-50 dark:bg-slate-800/40"
+                            : ""
+                        )}
+                      >
+                        <UploadCloud className="w-8 h-8 text-slate-450" />
+                        <p className="text-body-sm text-secondary dark:text-slate-300 font-medium">
+                          {isUploading ? t("controls.modal.uploading") : t("controls.modal.uploadText")}
+                        </p>
                       </div>
-                    )}
+                      <input
+                        type="file"
+                        ref={fileInputRef}
+                        onChange={handleFileSelect}
+                        className="hidden"
+                        accept=".pdf,.png,.jpg,.jpeg,.csv"
+                        aria-label={t("controls.modal.uploadTitle")}
+                        disabled={isUploading}
+                      />
 
-                    {isUploading && (
-                      <div className="flex items-center justify-center gap-2 text-body-sm text-secondary dark:text-slate-400 py-2">
-                        <div className="w-4 h-4 border-2 border-primary border-t-transparent rounded-full animate-spin" />
-                        {t("controls.modal.uploading")}
-                      </div>
-                    )}
-                  </div>
-                )}
+                      {uploadError && (
+                        <div className="bg-rose-500/10 border border-rose-500/20 text-danger-rose dark:text-rose-400 p-3 rounded text-body-sm">
+                          {uploadError}
+                        </div>
+                      )}
+
+                      {uploadSuccess && (
+                        <div className="bg-emerald-550/10 border border-emerald-500/20 text-success-emerald p-3 rounded text-body-sm font-semibold">
+                          {t("controls.modal.uploadSuccess")}
+                        </div>
+                      )}
+
+                      {isUploading && (
+                        <div className="flex items-center justify-center gap-2 text-body-sm text-secondary dark:text-slate-400 py-2">
+                          <div className="w-4 h-4 border-2 border-primary border-t-transparent rounded-full animate-spin" />
+                          {t("controls.modal.uploading")}
+                        </div>
+                      )}
+                    </div>
+                  )}
+                </div>
               </div>
-            </div>
 
-            {/* Footer */}
-            <div className="p-4 border-t border-surface-border dark:border-slate-800 flex items-center justify-end bg-slate-50 dark:bg-slate-900/60">
-              <Button onClick={() => setSelectedControl(null)}>{t("controls.modal.close")}</Button>
-            </div>
-          </div>
-        </div>
-      )}
+              {/* Footer */}
+              <div className="p-4 border-t border-surface-border dark:border-slate-800 flex items-center justify-end bg-slate-50 dark:bg-slate-900/60">
+                <Button onClick={() => setSelectedControl(null)}>{t("controls.modal.close")}</Button>
+              </div>
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
     </PageLayout>
   );
 }

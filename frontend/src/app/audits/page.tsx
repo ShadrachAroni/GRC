@@ -8,6 +8,7 @@ import { Button } from "@/components/atoms/Button";
 import { auditService, AuditLog, AuditFinding, Capa } from "@/services/audit";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useAuthStore } from "@/context/AuthStore";
+import { motion, AnimatePresence } from "framer-motion";
 import {
   ShieldAlert,
   Search,
@@ -42,6 +43,7 @@ export default function AuditsPage() {
   const [activeTab, setActiveTab] = useState<"findings" | "capas" | "logs">(
     isAdmin ? "logs" : "findings"
   );
+  const [isDownloadingCsv, setIsDownloadingCsv] = useState(false);
 
   // Search / Filters
   const [logSearch, setLogSearch] = useState("");
@@ -152,6 +154,7 @@ export default function AuditsPage() {
   // Handlers
   const handleDownloadCsv = async () => {
     try {
+      setIsDownloadingCsv(true);
       const blob = await auditService.downloadAuditLogsCsv();
       const url = window.URL.createObjectURL(blob);
       const a = document.createElement("a");
@@ -164,6 +167,8 @@ export default function AuditsPage() {
     } catch (err) {
       // eslint-disable-next-line no-console
       console.error("Error downloading logs", err);
+    } finally {
+      setIsDownloadingCsv(false);
     }
   };
 
@@ -532,6 +537,7 @@ export default function AuditsPage() {
                   size="md"
                   leftIcon={<Download className="w-4 h-4" />}
                   onClick={handleDownloadCsv}
+                  isLoading={isDownloadingCsv}
                 >
                   {t("audits.downloadLogs")}
                 </Button>
@@ -733,6 +739,7 @@ export default function AuditsPage() {
                                   size="sm"
                                   leftIcon={<Edit2 className="w-3.5 h-3.5" />}
                                   onClick={() => handleOpenEditFinding(finding)}
+                                  disabled={deleteFindingMutation.isPending && deleteFindingMutation.variables === finding.finding_id}
                                 >
                                   {t("findings.table.edit")}
                                 </Button>
@@ -742,6 +749,8 @@ export default function AuditsPage() {
                                   leftIcon={<Trash2 className="w-3.5 h-3.5" />}
                                   onClick={() => handleDeleteFinding(finding.finding_id)}
                                   className="text-rose-600 hover:text-rose-700 hover:bg-rose-50 dark:hover:bg-rose-950/20 border-rose-200 dark:border-rose-800"
+                                  disabled={deleteFindingMutation.isPending && deleteFindingMutation.variables === finding.finding_id}
+                                  isLoading={deleteFindingMutation.isPending && deleteFindingMutation.variables === finding.finding_id}
                                 >
                                   {t("findings.table.delete")}
                                 </Button>
@@ -872,11 +881,12 @@ export default function AuditsPage() {
                       {/* Actions */}
                       {isAdminOrAnalyst && (
                         <div className="flex justify-end gap-2 pt-3">
-                          <Button
+                           <Button
                             variant="secondary"
                             size="sm"
                             leftIcon={<Edit2 className="w-3.5 h-3.5" />}
                             onClick={() => handleOpenEditCapa(capa)}
+                            disabled={deleteCapaMutation.isPending && deleteCapaMutation.variables === capa.capa_id}
                           >
                             {t("findings.table.edit")}
                           </Button>
@@ -886,6 +896,8 @@ export default function AuditsPage() {
                             leftIcon={<Trash2 className="w-3.5 h-3.5" />}
                             onClick={() => handleDeleteCapa(capa.capa_id)}
                             className="text-rose-600 hover:text-rose-700 hover:bg-rose-50 dark:hover:bg-rose-950/20 border-rose-200 dark:border-rose-800"
+                            disabled={deleteCapaMutation.isPending && deleteCapaMutation.variables === capa.capa_id}
+                            isLoading={deleteCapaMutation.isPending && deleteCapaMutation.variables === capa.capa_id}
                           >
                             {t("findings.table.delete")}
                           </Button>
@@ -904,9 +916,21 @@ export default function AuditsPage() {
         )}
 
         {/* --- MODAL: ADD/EDIT FINDING --- */}
+      <AnimatePresence>
         {isFindingModalOpen && (
-          <div className="fixed inset-0 bg-slate-950/60 backdrop-blur-sm z-50 flex items-center justify-center p-4">
-            <div className="bg-white dark:bg-slate-900 border border-surface-border dark:border-slate-800 rounded-lg shadow-xl max-w-md w-full overflow-hidden flex flex-col animate-scaleIn">
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="fixed inset-0 bg-slate-950/60 backdrop-blur-sm z-50 flex items-center justify-center p-4"
+          >
+            <motion.div
+              initial={{ scale: 0.95, opacity: 0, y: 12 }}
+              animate={{ scale: 1, opacity: 1, y: 0 }}
+              exit={{ scale: 0.95, opacity: 0, y: 10 }}
+              transition={{ type: "spring", stiffness: 300, damping: 25 }}
+              className="bg-white dark:bg-slate-900 border border-surface-border dark:border-slate-800 rounded-lg shadow-xl max-w-md w-full overflow-hidden flex flex-col"
+            >
               <div className="p-4 border-b border-surface-border dark:border-slate-800 flex items-center justify-between">
                 <h3 className="text-headline-sm font-bold text-primary dark:text-slate-100 flex items-center gap-2">
                   <ClipboardCheck className="w-5 h-5 text-indigo-500" />
@@ -1016,23 +1040,36 @@ export default function AuditsPage() {
                   </select>
                 </div>
 
-                <div className="flex justify-end gap-2.5 pt-2">
-                  <Button variant="secondary" onClick={() => setIsFindingModalOpen(false)}>
+                 <div className="flex justify-end gap-2.5 pt-2">
+                  <Button variant="secondary" onClick={() => setIsFindingModalOpen(false)} disabled={createFindingMutation.isPending || updateFindingMutation.isPending}>
                     {t("findings.modal.cancel")}
                   </Button>
-                  <Button type="submit">
+                  <Button type="submit" isLoading={createFindingMutation.isPending || updateFindingMutation.isPending}>
                     {editingFinding ? t("findings.modal.saveChanges") : t("findings.modal.createFinding", "Record Finding")}
                   </Button>
                 </div>
               </form>
-            </div>
-          </div>
+            </motion.div>
+          </motion.div>
         )}
+      </AnimatePresence>
 
-        {/* --- MODAL: ADD/EDIT CAPA --- */}
+      {/* --- MODAL: ADD/EDIT CAPA --- */}
+      <AnimatePresence>
         {isCapaModalOpen && (
-          <div className="fixed inset-0 bg-slate-950/60 backdrop-blur-sm z-50 flex items-center justify-center p-4">
-            <div className="bg-white dark:bg-slate-900 border border-surface-border dark:border-slate-800 rounded-lg shadow-xl max-w-md w-full overflow-hidden flex flex-col animate-scaleIn">
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="fixed inset-0 bg-slate-950/60 backdrop-blur-sm z-50 flex items-center justify-center p-4"
+          >
+            <motion.div
+              initial={{ scale: 0.95, opacity: 0, y: 12 }}
+              animate={{ scale: 1, opacity: 1, y: 0 }}
+              exit={{ scale: 0.95, opacity: 0, y: 10 }}
+              transition={{ type: "spring", stiffness: 300, damping: 25 }}
+              className="bg-white dark:bg-slate-900 border border-surface-border dark:border-slate-800 rounded-lg shadow-xl max-w-md w-full overflow-hidden flex flex-col"
+            >
               <div className="p-4 border-b border-surface-border dark:border-slate-800 flex items-center justify-between">
                 <h3 className="text-headline-sm font-bold text-primary dark:text-slate-100 flex items-center gap-2">
                   <CheckCircle2 className="w-5 h-5 text-emerald-500" />
@@ -1167,23 +1204,36 @@ export default function AuditsPage() {
                   </select>
                 </div>
 
-                <div className="flex justify-end gap-2.5 pt-2">
-                  <Button variant="secondary" onClick={() => setIsCapaModalOpen(false)}>
+                 <div className="flex justify-end gap-2.5 pt-2">
+                  <Button variant="secondary" onClick={() => setIsCapaModalOpen(false)} disabled={createCapaMutation.isPending || updateCapaMutation.isPending}>
                     {t("capa.modal.cancel")}
                   </Button>
-                  <Button type="submit">
+                  <Button type="submit" isLoading={createCapaMutation.isPending || updateCapaMutation.isPending}>
                     {editingCapa ? t("capa.modal.saveChanges") : t("capa.modal.initiate")}
                   </Button>
                 </div>
               </form>
-            </div>
-          </div>
+            </motion.div>
+          </motion.div>
         )}
+      </AnimatePresence>
 
         {/* INSPECTOR MODAL */}
-        {selectedDetails && (
-          <div className="fixed inset-0 bg-slate-950/60 backdrop-blur-sm z-50 flex items-center justify-center p-4">
-            <div className="bg-white dark:bg-slate-900 border border-surface-border dark:border-slate-800 rounded-lg shadow-xl max-w-lg w-full overflow-hidden flex flex-col">
+        <AnimatePresence>
+          {selectedDetails && (
+            <motion.div
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              className="fixed inset-0 bg-slate-950/60 backdrop-blur-sm z-50 flex items-center justify-center p-4"
+            >
+              <motion.div
+                initial={{ scale: 0.95, opacity: 0, y: 12 }}
+                animate={{ scale: 1, opacity: 1, y: 0 }}
+                exit={{ scale: 0.95, opacity: 0, y: 10 }}
+                transition={{ type: "spring", stiffness: 300, damping: 25 }}
+                className="bg-white dark:bg-slate-900 border border-surface-border dark:border-slate-800 rounded-lg shadow-xl max-w-lg w-full overflow-hidden flex flex-col"
+              >
               {/* Header */}
               <div className="p-4 border-b border-surface-border dark:border-slate-800 flex items-center justify-between">
                 <h4 className="text-headline-sm font-bold text-primary dark:text-slate-100 flex items-center gap-2">
@@ -1207,9 +1257,10 @@ export default function AuditsPage() {
               <div className="p-3 border-t border-surface-border dark:border-slate-800 flex justify-end bg-slate-50 dark:bg-slate-900">
                 <Button onClick={() => setSelectedDetails(null)}>{t("audits.inspector.close")}</Button>
               </div>
-            </div>
-          </div>
-        )}
+              </motion.div>
+            </motion.div>
+          )}
+        </AnimatePresence>
       </div>
     </PageLayout>
   );

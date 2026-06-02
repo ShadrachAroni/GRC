@@ -36,3 +36,32 @@ async def stripe_webhook(request: Request, stripe_signature: str = Header(None))
     logger.info(f"Received stripe event: {event['type']}")
     
     return {"status": "success"}
+
+
+@router.post("/webhook/flutterwave")
+async def flutterwave_webhook(request: Request, verif_hash: str = Header(None)):
+    if not verif_hash:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Missing verif-hash header"
+        )
+    
+    if verif_hash != settings.FLUTTERWAVE_WEBHOOK_SECRET:
+        logger.error("Invalid signature for Flutterwave webhook")
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Invalid signature"
+        )
+    
+    try:
+        payload = await request.json()
+    except Exception as e:
+        logger.error(f"Invalid JSON payload for Flutterwave webhook: {e}")
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Invalid payload"
+        )
+    
+    logger.info(f"Received Flutterwave event: {payload.get('event')}")
+    
+    return {"status": "success"}

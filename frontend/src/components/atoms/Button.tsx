@@ -42,13 +42,13 @@ export const Button = forwardRef<HTMLButtonElement, ButtonProps>(
     const getVariantStyles = (v: typeof variant) => {
       switch (v) {
         case "primary":
-          return "bg-primary text-white hover:bg-secondary border border-transparent";
+          return "bg-primary text-white hover:bg-secondary border border-transparent dark:bg-slate-100 dark:text-slate-950 dark:hover:bg-slate-200";
         case "secondary":
-          return "bg-white text-primary border border-surface-border hover:bg-background";
+          return "bg-white text-primary border border-surface-border hover:bg-background dark:bg-slate-800 dark:text-slate-200 dark:border-slate-700 dark:hover:bg-slate-800/80";
         case "tertiary":
-          return "bg-transparent text-primary hover:bg-background border border-transparent";
+          return "bg-transparent text-primary hover:bg-background border border-transparent dark:text-slate-350 dark:hover:bg-slate-800/65";
         default:
-          return "bg-primary text-white hover:bg-secondary border border-transparent";
+          return "bg-primary text-white hover:bg-secondary border border-transparent dark:bg-slate-100 dark:text-slate-950 dark:hover:bg-slate-200";
       }
     };
 

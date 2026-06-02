@@ -1,6 +1,6 @@
 "use client";
 
-import React from "react";
+import React, { useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { useTranslation } from "react-i18next";
 import { PageLayout } from "@/components/templates/PageLayout";
@@ -8,8 +8,25 @@ import { Button } from "@/components/atoms/Button";
 import { Badge } from "@/components/atoms/Badge";
 import { dashboardService } from "@/services/dashboard";
 import { useAuthStore } from "@/context/AuthStore";
+import { useNotification } from "@/context/NotificationContext";
 import { cn } from "@/utils/cn";
 import dynamic from "next/dynamic";
+import { motion } from "framer-motion";
+
+const cardContainerVariants = {
+  hidden: { opacity: 0 },
+  show: {
+    opacity: 1,
+    transition: {
+      staggerChildren: 0.08,
+    },
+  },
+};
+
+const cardItemVariants = {
+  hidden: { opacity: 0, y: 15 },
+  show: { opacity: 1, y: 0, transition: { type: "spring", stiffness: 260, damping: 20 } },
+};
 
 const ChartLoader = ({ messageKey }: { messageKey: string }) => {
   const { t } = useTranslation();
@@ -60,6 +77,9 @@ const getSeverityColor = (severity: string): string => {
 export default function Home() {
   const { user } = useAuthStore();
   const { t } = useTranslation();
+  const { showToast } = useNotification();
+  const [isExportingRisks, setIsExportingRisks] = useState(false);
+  const [isExportingCapas, setIsExportingCapas] = useState(false);
 
   // Fetch Dashboard Summary
   const { data: summary, isLoading, isError, error } = useQuery({
@@ -71,6 +91,7 @@ export default function Home() {
   // Action: Export Risks Register (CSV)
   const handleExportRisks = async () => {
     try {
+      setIsExportingRisks(true);
       const blob = await dashboardService.downloadRisksCsv();
       const url = window.URL.createObjectURL(blob);
       const link = document.createElement("a");
@@ -79,14 +100,18 @@ export default function Home() {
       document.body.appendChild(link);
       link.click();
       link.parentNode?.removeChild(link);
+      showToast("Risks register exported successfully", "success");
     } catch (err: any) {
-      alert(err.message || "Failed to download risks CSV");
+      showToast(err.message || "Failed to download risks CSV", "error");
+    } finally {
+      setIsExportingRisks(false);
     }
   };
 
   // Action: Export CAPA Tracker (CSV)
   const handleExportCapas = async () => {
     try {
+      setIsExportingCapas(true);
       const blob = await dashboardService.downloadCapasCsv();
       const url = window.URL.createObjectURL(blob);
       const link = document.createElement("a");
@@ -95,8 +120,11 @@ export default function Home() {
       document.body.appendChild(link);
       link.click();
       link.parentNode?.removeChild(link);
+      showToast("CAPAs exported successfully", "success");
     } catch (err: any) {
-      alert(err.message || "Failed to download CAPAs CSV");
+      showToast(err.message || "Failed to download CAPAs CSV", "error");
+    } finally {
+      setIsExportingCapas(false);
     }
   };
 
@@ -185,6 +213,7 @@ export default function Home() {
               leftIcon={<Download className="w-4 h-4" />}
               onClick={handleExportRisks}
               size="sm"
+              isLoading={isExportingRisks}
             >
               {t("dashboard.exportRisks")}
             </Button>
@@ -193,6 +222,7 @@ export default function Home() {
               leftIcon={<Download className="w-4 h-4" />}
               onClick={handleExportCapas}
               size="sm"
+              isLoading={isExportingCapas}
             >
               {t("dashboard.exportCapas")}
             </Button>
@@ -200,10 +230,18 @@ export default function Home() {
         </div>
 
         {/* 4 KPI Summary Cards */}
-        <div className="grid grid-cols-1 md:grid-cols-4 gap-5">
+        <motion.div
+          variants={cardContainerVariants}
+          initial="hidden"
+          animate="show"
+          className="grid grid-cols-1 md:grid-cols-4 gap-5"
+        >
           
           {/* Card 1: Compliance Score */}
-          <div className="bg-white dark:bg-slate-900 border border-surface-border dark:border-slate-800 rounded-xl p-5 shadow-sm hover:translate-y-[-2px] transition-all duration-300 flex items-center justify-between">
+          <motion.div
+            variants={cardItemVariants}
+            className="bg-white dark:bg-slate-900 border border-surface-border dark:border-slate-800 rounded-xl p-5 shadow-sm hover:translate-y-[-2px] transition-all duration-300 flex items-center justify-between"
+          >
             <div className="space-y-1">
               <p className="text-body-xs font-semibold text-secondary dark:text-slate-400 uppercase tracking-wider">
                 {t("dashboard.overallCompliance")}
@@ -241,10 +279,13 @@ export default function Home() {
                 <CheckCircle2 className="w-6 h-6 text-emerald-500" />
               </div>
             </div>
-          </div>
+          </motion.div>
 
           {/* Card 2: Risk Profile */}
-          <div className="bg-white dark:bg-slate-900 border border-surface-border dark:border-slate-800 rounded-xl p-5 shadow-sm hover:translate-y-[-2px] transition-all duration-300 flex items-center justify-between">
+          <motion.div
+            variants={cardItemVariants}
+            className="bg-white dark:bg-slate-900 border border-surface-border dark:border-slate-800 rounded-xl p-5 shadow-sm hover:translate-y-[-2px] transition-all duration-300 flex items-center justify-between"
+          >
             <div className="space-y-1">
               <p className="text-body-xs font-semibold text-secondary dark:text-slate-400 uppercase tracking-wider">
                 {t("dashboard.activeRiskRegister")}
@@ -266,10 +307,13 @@ export default function Home() {
             <div className="w-12 h-12 rounded-lg bg-orange-500/10 flex items-center justify-center text-orange-500 border border-orange-500/20">
               <AlertTriangle className="w-6 h-6" />
             </div>
-          </div>
+          </motion.div>
 
           {/* Card 3: Incidents Tracker */}
-          <div className="bg-white dark:bg-slate-900 border border-surface-border dark:border-slate-800 rounded-xl p-5 shadow-sm hover:translate-y-[-2px] transition-all duration-300 flex items-center justify-between">
+          <motion.div
+            variants={cardItemVariants}
+            className="bg-white dark:bg-slate-900 border border-surface-border dark:border-slate-800 rounded-xl p-5 shadow-sm hover:translate-y-[-2px] transition-all duration-300 flex items-center justify-between"
+          >
             <div className="space-y-1">
               <p className="text-body-xs font-semibold text-secondary dark:text-slate-400 uppercase tracking-wider">
                 {t("dashboard.activeIncidents")}
@@ -290,10 +334,13 @@ export default function Home() {
             <div className="w-12 h-12 rounded-lg bg-rose-500/10 flex items-center justify-center text-rose-500 border border-rose-500/20">
               <Activity className="w-6 h-6 animate-pulse" />
             </div>
-          </div>
+          </motion.div>
 
           {/* Card 4: CAPA Items */}
-          <div className="bg-white dark:bg-slate-900 border border-surface-border dark:border-slate-800 rounded-xl p-5 shadow-sm hover:translate-y-[-2px] transition-all duration-300 flex items-center justify-between">
+          <motion.div
+            variants={cardItemVariants}
+            className="bg-white dark:bg-slate-900 border border-surface-border dark:border-slate-800 rounded-xl p-5 shadow-sm hover:translate-y-[-2px] transition-all duration-300 flex items-center justify-between"
+          >
             <div className="space-y-1">
               <p className="text-body-xs font-semibold text-secondary dark:text-slate-400 uppercase tracking-wider">
                 {t("dashboard.correctiveActions")}
@@ -314,9 +361,9 @@ export default function Home() {
             <div className="w-12 h-12 rounded-lg bg-indigo-500/10 flex items-center justify-center text-indigo-500 border border-indigo-500/20">
               <FileText className="w-6 h-6" />
             </div>
-          </div>
+          </motion.div>
 
-        </div>
+        </motion.div>
 
         {/* Main Charts & Visualizations */}
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">

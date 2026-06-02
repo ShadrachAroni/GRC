@@ -138,7 +138,7 @@ No API keys, database credentials, or secret encryption keys are permitted insid
 To comply with **Control 13 (Key Rotation)**, the following rotation policy is enforced:
 1. **JWT Signing Secrets**: Must be rotated **every 90 days** or immediately upon exposure. Rotation invalidates active sessions, requiring users to log back in.
 2. **Database Passwords**: Must be rotated **every 90 days** or on administrator turnover. Requires updating both the PostgreSQL credentials and the backend's environment variables.
-3. **Third-Party Secrets**: Webhook integration signatures (e.g. Stripe) must be rotated **every 90 days** via provider portals.
+3. **Third-Party Secrets**: Webhook integration signatures (e.g. Stripe webhook secrets and Flutterwave verification hashes) must be rotated **every 90 days** via provider portals.
 
 ### Verification of Key Rotation
 Commit histories are monitored to ensure no secrets are leaked:
@@ -165,3 +165,14 @@ When presenting or demonstrating the SecureBank GRC Platform, highlight the foll
 - **MFA Compliance Auditor**: Simulates continuous checks on user settings, raising high-severity compliance findings and auto-generating corrective action plans (CAPA) if MFA is disabled.
 - **Third-Party Risk Scorecard**: Uses scoring scripts to evaluate vendor risk tiers based on configuration assessments.
 - **Mean-Time-To-Resolve (MTTR)**: Tracks incident lifecycle stages and automatically calculates MTTD and MTTR metrics to drive incident response SLAs.
+
+---
+
+## 6. System Documentation
+
+Detailed technical manuals, architectural designs, and user guides are stored within the `Docs/` directory:
+
+- **[System Architectural Overview](Docs/ARCHITECTURAL_OVERVIEW.md)**: Deep dive into Clean Architecture design patterns, multi-user tenant isolation (RLS), RBAC rules, MFA authentication flows, and Stripe/Flutterwave payment webhooks.
+- **[User Operations Guide](Docs/USER_GUIDE.md)**: Operational guide for using the Risk Register, Compliance Tracker evidence uploads, Incident Kanban board, and CAPA SLA tracking.
+- **[Operational Administration Manual](Docs/OPERATIONS_MANUAL.md)**: Instructions for Docker Stack setup, SQLite/PostgreSQL bootstrapping, database seeding, Alembic migrations, cryptographic secret rotation, and SIEM logging.
+- **[Codebase Component Reference](Docs/COMPONENT_REFERENCE.md)**: Technical dictionary of backend routes, validation models, frontend atomic UI components, and client-side stores.

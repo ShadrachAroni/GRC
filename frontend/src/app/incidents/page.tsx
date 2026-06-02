@@ -8,7 +8,9 @@ import { Badge } from "@/components/atoms/Badge";
 import { Input } from "@/components/atoms/Input";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useAuthStore } from "@/context/AuthStore";
+import { useNotification } from "@/context/NotificationContext";
 import { cn } from "@/utils/cn";
+import { motion, AnimatePresence } from "framer-motion";
 import { incidentsService, Incident, IncidentCreatePayload, IncidentUpdatePayload } from "@/services/incidents";
 import {
   AlertOctagon,
@@ -100,6 +102,7 @@ export default function IncidentsPage() {
   const queryClient = useQueryClient();
   const { user } = useAuthStore();
   const { t } = useTranslation();
+  const { showToast } = useNotification();
   const isReadOnly = user?.role === "Viewer";
 
   const [searchTerm, setSearchTerm] = useState("");
@@ -142,10 +145,12 @@ export default function IncidentsPage() {
     mutationFn: (payload: IncidentCreatePayload) => incidentsService.createIncident(payload),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["incidents"] });
+      showToast("Incident registered successfully", "success");
       closeModal();
     },
     onError: (err: any) => {
       setApiError(err.message || "Failed to register incident");
+      showToast(err.message || "Failed to register incident", "error");
     },
   });
 
@@ -154,10 +159,12 @@ export default function IncidentsPage() {
       incidentsService.updateIncident(id, payload),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["incidents"] });
+      showToast("Incident updated successfully", "success");
       closeModal();
     },
     onError: (err: any) => {
       setApiError(err.message || "Failed to update incident");
+      showToast(err.message || "Failed to update incident", "error");
     },
   });
 
@@ -165,9 +172,10 @@ export default function IncidentsPage() {
     mutationFn: (id: number) => incidentsService.deleteIncident(id),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["incidents"] });
+      showToast("Incident deleted successfully", "success");
     },
     onError: (err: any) => {
-      alert(err.message || "Failed to delete incident");
+      showToast(err.message || "Failed to delete incident", "error");
     },
   });
 
@@ -481,14 +489,16 @@ export default function IncidentsPage() {
                     {laneIncidents.length > 0 ? (
                       laneIncidents.map((incident) => {
                         const sla = getSlaStatus(incident);
+                        const isMutating = (deleteMutation.isPending && deleteMutation.variables === incident.incident_id) || (updateMutation.isPending && updateMutation.variables?.id === incident.incident_id);
                         return (
                           <div
                             key={incident.incident_id}
-                            draggable={!isReadOnly}
+                            draggable={!isReadOnly && !isMutating}
                             onDragStart={(e) => handleDragStart(e, incident.incident_id)}
                             className={cn(
                               "bg-white dark:bg-slate-900 p-4 rounded border transition-all duration-150 relative shadow-sm cursor-grab active:cursor-grabbing hover:shadow-md",
-                              sla.borderStyle
+                              sla.borderStyle,
+                              isMutating && "opacity-50 cursor-not-allowed pointer-events-none"
                             )}
                           >
                             {/* Card Header info */}
@@ -544,9 +554,9 @@ export default function IncidentsPage() {
                                 <select
                                   id={`move-${incident.incident_id}`}
                                   value={incident.status}
-                                  disabled={isReadOnly}
+                                  disabled={isReadOnly || isMutating}
                                   onChange={(e) => handleKeyboardMove(incident.incident_id, e.target.value as any)}
-                                  className="text-[11px] bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded px-1.5 py-1 focus:outline-none focus:ring-1 focus:ring-primary focus:border-primary text-secondary dark:text-slate-300"
+                                  className="text-[11px] bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded px-1.5 py-1 focus:outline-none focus:ring-1 focus:ring-primary focus:border-primary text-secondary dark:text-slate-300 disabled:opacity-50"
                                 >
                                   {STATUS_LANES.map((lane) => (
                                     <option key={lane} value={lane}>Move to {lane}</option>
@@ -559,7 +569,8 @@ export default function IncidentsPage() {
                                 <div className="flex items-center gap-1.5">
                                   <button
                                     onClick={() => openEditModal(incident)}
-                                    className="p-1 rounded text-slate-400 hover:text-primary dark:hover:text-white hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors"
+                                    disabled={isMutating}
+                                    className="p-1 rounded text-slate-400 hover:text-primary dark:hover:text-white hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
                                     title="Edit"
                                     aria-label="Edit"
                                   >
@@ -567,11 +578,16 @@ export default function IncidentsPage() {
                                   </button>
                                   <button
                                     onClick={() => handleDelete(incident.incident_id)}
-                                    className="p-1 rounded text-rose-400 hover:text-danger-rose hover:bg-rose-50 dark:hover:bg-rose-950/20 transition-colors"
+                                    disabled={isMutating}
+                                    className="p-1 rounded text-rose-400 hover:text-danger-rose hover:bg-rose-50 dark:hover:bg-rose-950/20 transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center min-w-5 min-h-5"
                                     title="Delete"
                                     aria-label="Delete"
                                   >
-                                    <Trash2 className="w-3.5 h-3.5" />
+                                    {deleteMutation.isPending && deleteMutation.variables === incident.incident_id ? (
+                                      <div className="w-3 h-3 border-2 border-rose-500 border-t-transparent rounded-full animate-spin" />
+                                    ) : (
+                                      <Trash2 className="w-3.5 h-3.5" />
+                                    )}
                                   </button>
                                 </div>
                               )}
@@ -593,9 +609,21 @@ export default function IncidentsPage() {
       </div>
 
       {/* CREATE & EDIT DIALOG MODAL */}
-      {(isCreateModalOpen || editingIncident) && (
-        <div className="fixed inset-0 bg-slate-950/60 backdrop-blur-sm z-50 flex items-center justify-center p-4">
-          <div className="bg-white dark:bg-slate-900 border border-surface-border dark:border-slate-800 rounded-lg shadow-xl max-w-lg w-full overflow-hidden flex flex-col max-h-[90vh]">
+      <AnimatePresence>
+        {(isCreateModalOpen || editingIncident) && (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="fixed inset-0 bg-slate-950/60 backdrop-blur-sm z-50 flex items-center justify-center p-4"
+          >
+            <motion.div
+              initial={{ scale: 0.95, opacity: 0, y: 12 }}
+              animate={{ scale: 1, opacity: 1, y: 0 }}
+              exit={{ scale: 0.95, opacity: 0, y: 10 }}
+              transition={{ type: "spring", stiffness: 300, damping: 25 }}
+              className="bg-white dark:bg-slate-900 border border-surface-border dark:border-slate-800 rounded-lg shadow-xl max-w-lg w-full overflow-hidden flex flex-col max-h-[90vh]"
+            >
             
             {/* Header */}
             <div className="p-4 border-b border-surface-border dark:border-slate-800 flex items-center justify-between">
@@ -738,9 +766,10 @@ export default function IncidentsPage() {
                 </Button>
               </div>
             </form>
-          </div>
-        </div>
+          </motion.div>
+        </motion.div>
       )}
+    </AnimatePresence>
     </PageLayout>
   );
 }

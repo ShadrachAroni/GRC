@@ -3,7 +3,7 @@
 import React, { useState, useEffect } from "react";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
-import { motion } from "framer-motion";
+import { motion, AnimatePresence } from "framer-motion";
 import {
   LayoutDashboard,
   ShieldCheck,
@@ -22,6 +22,10 @@ import { cn } from "@/utils/cn";
 import { Breadcrumbs, BreadcrumbItem } from "@/components/molecules/Breadcrumbs";
 import { getVariants, slideVerticalVariants } from "@/utils/motion";
 import { useAuthStore } from "@/context/AuthStore";
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import { notificationsService, Notification } from "@/services/notifications";
+import { useNotification } from "@/context/NotificationContext";
+import { X } from "lucide-react";
 
 export interface PageLayoutProps {
   children: React.ReactNode;
@@ -48,6 +52,40 @@ export const PageLayout: React.FC<PageLayoutProps> = ({
   const { user, logout } = useAuthStore();
   const [theme, setTheme] = useState<"light" | "dark">("light");
   const [shouldReduceMotion, setShouldReduceMotion] = useState(false);
+  const [isNotifOpen, setIsNotifOpen] = useState(false);
+  const queryClient = useQueryClient();
+  const { showToast } = useNotification();
+
+  const { data: notifications = [], isLoading: isNotifLoading } = useQuery<Notification[]>({
+    queryKey: ["notifications"],
+    queryFn: () => notificationsService.getNotifications(),
+    refetchInterval: 15000, // Poll every 15s
+    enabled: !!user,
+  });
+
+  const markReadMutation = useMutation({
+    mutationFn: (id: number) => notificationsService.markAsRead(id),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["notifications"] });
+    },
+    onError: (err: any) => {
+      showToast(err.message || "Failed to mark notification as read", "error");
+    }
+  });
+
+  const markAllReadMutation = useMutation({
+    mutationFn: () => notificationsService.markAllAsRead(),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["notifications"] });
+      showToast("All notifications marked as read", "success");
+    },
+    onError: (err: any) => {
+      showToast(err.message || "Failed to mark all as read", "error");
+    }
+  });
+
+  const unreadCount = notifications.filter((n) => !n.is_read).length;
+  const criticalNotifs = notifications.filter((n) => n.severity === "Critical" && !n.is_read);
 
   const handleLogout = async () => {
     await logout();
@@ -76,7 +114,19 @@ export const PageLayout: React.FC<PageLayoutProps> = ({
       setShouldReduceMotion(e.matches);
     };
     motionQuery.addEventListener("change", handleMotionChange);
-    return () => motionQuery.removeEventListener("change", handleMotionChange);
+
+    const handleThemeEvent = () => {
+      const currentStored = localStorage.getItem("theme") as "light" | "dark" | null;
+      if (currentStored) {
+        setTheme(currentStored);
+      }
+    };
+    window.addEventListener("theme-change", handleThemeEvent);
+
+    return () => {
+      motionQuery.removeEventListener("change", handleMotionChange);
+      window.removeEventListener("theme-change", handleThemeEvent);
+    };
   }, []);
 
   const toggleTheme = () => {
@@ -84,10 +134,12 @@ export const PageLayout: React.FC<PageLayoutProps> = ({
       setTheme("dark");
       document.documentElement.classList.add("dark");
       localStorage.setItem("theme", "dark");
+      window.dispatchEvent(new Event("theme-change"));
     } else {
       setTheme("light");
       document.documentElement.classList.remove("dark");
       localStorage.setItem("theme", "light");
+      window.dispatchEvent(new Event("theme-change"));
     }
   };
 
@@ -152,7 +204,9 @@ export const PageLayout: React.FC<PageLayoutProps> = ({
 
           <div className="flex items-center gap-2 sm:gap-4 ml-auto">
             {/* Dark Mode Toggle */}
-            <button
+            <motion.button
+              whileHover={{ scale: 1.05 }}
+              whileTap={{ scale: 0.95 }}
               onClick={toggleTheme}
               className="p-2 rounded-md border border-surface-border dark:border-slate-800 hover:bg-slate-50 dark:hover:bg-slate-800 text-secondary dark:text-slate-300 transition-colors duration-150"
               aria-label="Toggle Dark Mode"
@@ -162,16 +216,99 @@ export const PageLayout: React.FC<PageLayoutProps> = ({
               ) : (
                 <Sun className="w-4 h-4" />
               )}
-            </button>
+            </motion.button>
 
             {/* Notifications */}
-            <button
-              className="p-2 rounded-md border border-surface-border dark:border-slate-800 hover:bg-slate-50 dark:hover:bg-slate-800 text-secondary dark:text-slate-300 transition-colors duration-150 relative"
-              aria-label="View notifications"
-            >
-              <Bell className="w-4 h-4" />
-              <span className="absolute top-1.5 right-1.5 w-1.5 h-1.5 rounded-full bg-danger-rose" />
-            </button>
+            <div className="relative">
+              <motion.button
+                whileHover={{ scale: 1.05 }}
+                whileTap={{ scale: 0.95 }}
+                onClick={() => setIsNotifOpen(!isNotifOpen)}
+                className="p-2 rounded-md border border-surface-border dark:border-slate-800 hover:bg-slate-50 dark:hover:bg-slate-800 text-secondary dark:text-slate-300 transition-colors duration-150 relative"
+                aria-label="View notifications"
+              >
+                <Bell className="w-4 h-4" />
+                {unreadCount > 0 && (
+                  <span className="absolute top-1.5 right-1.5 flex h-2 w-2">
+                    <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-danger-rose opacity-75"></span>
+                    <span className="relative inline-flex rounded-full h-2 w-2 bg-danger-rose"></span>
+                  </span>
+                )}
+              </motion.button>
+
+              <AnimatePresence>
+                {isNotifOpen && (
+                  <>
+                    <div className="fixed inset-0 z-30" onClick={() => setIsNotifOpen(false)} />
+                    <motion.div
+                      initial={{ opacity: 0, y: -12, scale: 0.96 }}
+                      animate={{ opacity: 1, y: 0, scale: 1 }}
+                      exit={{ opacity: 0, y: -8, scale: 0.96 }}
+                      transition={{ duration: 0.15, ease: "easeOut" }}
+                      className="absolute right-0 mt-2 w-80 bg-white dark:bg-slate-900 border border-surface-border dark:border-slate-800 rounded shadow-xl z-40 overflow-hidden flex flex-col origin-top-right"
+                    >
+                      <div className="px-4 py-2 border-b border-surface-border dark:border-slate-800 flex items-center justify-between bg-slate-50 dark:bg-slate-800/50">
+                        <span className="font-semibold text-body-sm text-primary dark:text-slate-200">Notifications ({unreadCount})</span>
+                        {unreadCount > 0 && (
+                          <button
+                            onClick={() => markAllReadMutation.mutate()}
+                            className="text-[11px] text-indigo-600 hover:text-indigo-800 dark:text-indigo-400 dark:hover:text-indigo-300 hover:underline font-medium"
+                          >
+                            Mark all read
+                          </button>
+                        )}
+                      </div>
+                      <div className="max-h-64 overflow-y-auto divide-y divide-surface-border dark:divide-slate-800">
+                        {isNotifLoading ? (
+                          <div className="p-4 text-center text-body-sm text-slate-400">Loading...</div>
+                        ) : notifications.length === 0 ? (
+                          <div className="p-4 text-center text-body-sm text-slate-400">No notifications</div>
+                        ) : (
+                          notifications.map((notif) => (
+                            <div
+                              key={notif.id}
+                              className={cn(
+                                "p-3 text-left transition-colors relative flex items-start gap-2 text-body-sm",
+                                notif.is_read ? "bg-white dark:bg-slate-900" : "bg-slate-50 dark:bg-slate-800/40"
+                              )}
+                            >
+                              <div className="flex-1 min-w-0">
+                                <div className="flex items-center gap-1.5">
+                                  <span className={cn(
+                                    "w-1.5 h-1.5 rounded-full flex-shrink-0",
+                                    notif.severity === "Critical" ? "bg-danger-rose" :
+                                    notif.severity === "High" ? "bg-warning-amber" :
+                                    notif.severity === "Medium" ? "bg-blue-500" : "bg-slate-400"
+                                  )} />
+                                  <h4 className="font-semibold text-body-sm text-primary dark:text-slate-200 truncate">
+                                    {notif.title}
+                                  </h4>
+                                </div>
+                                <p className="text-[11px] text-slate-500 dark:text-slate-400 mt-0.5 whitespace-pre-wrap">
+                                  {notif.message}
+                                </p>
+                                <span className="text-[9px] text-slate-400 dark:text-slate-500 mt-1 block">
+                                  {new Date(notif.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                                </span>
+                              </div>
+                              {!notif.is_read && (
+                                <button
+                                  onClick={() => markReadMutation.mutate(notif.id)}
+                                  className="text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 mt-0.5"
+                                  title="Mark as read"
+                                >
+                                  <X className="w-3.5 h-3.5" />
+                                </button>
+                              )}
+                            </div>
+                          ))
+                        )}
+                      </div>
+                    </motion.div>
+                  </>
+                )}
+              </AnimatePresence>
+            </div>
 
             {/* Profile Avatar & Logout */}
             <div className="flex items-center gap-2.5 pl-2 border-l border-surface-border dark:border-slate-800">
@@ -186,17 +323,37 @@ export const PageLayout: React.FC<PageLayoutProps> = ({
                   {user?.role || "Viewer"}
                 </p>
               </div>
-              <button
+              <motion.button
+                whileHover={{ scale: 1.05 }}
+                whileTap={{ scale: 0.95 }}
                 onClick={handleLogout}
                 className="p-1.5 rounded-md hover:bg-slate-100 dark:hover:bg-slate-800 text-rose-500 hover:text-rose-600 transition-colors"
                 aria-label="Logout"
                 title="Logout"
               >
                 <LogOut className="w-4 h-4" />
-              </button>
+              </motion.button>
             </div>
           </div>
         </header>
+
+        {/* Top Critical Alerts Banner */}
+        {criticalNotifs.length > 0 && (
+          <div className="bg-rose-50 dark:bg-rose-950/20 border-b border-rose-100 dark:border-rose-900/30 px-4 py-3 text-danger-rose dark:text-rose-400 flex items-center justify-between text-body-sm font-medium">
+            <div className="flex items-center gap-2">
+              <AlertOctagon className="w-4 h-4 flex-shrink-0 animate-pulse" />
+              <span>
+                <strong>System Security Alert:</strong> {criticalNotifs[0].message}
+              </span>
+            </div>
+            <button
+              onClick={() => markReadMutation.mutate(criticalNotifs[0].id)}
+              className="text-[11px] underline font-bold uppercase hover:opacity-80 transition-opacity ml-4 flex-shrink-0"
+            >
+              Acknowledge
+            </button>
+          </div>
+        )}
 
         {/* Content Wrapper */}
         <main className="flex-1 p-4 md:p-6 max-w-max-content-width w-full mx-auto">

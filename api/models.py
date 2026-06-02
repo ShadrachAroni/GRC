@@ -310,6 +310,24 @@ class SystemAuditLog(Base):
         Index('idx_audit_logs_tenant_created', 'tenant_id', 'timestamp'),
     )
 
+class Notification(Base):
+    __tablename__ = "notifications"
+
+    id = Column(Integer, primary_key=True, index=True)
+    tenant_id = Column(String, index=True, nullable=False)
+    title = Column(String, nullable=False)
+    message = Column(String, nullable=False)
+    severity = Column(String, default="Info", nullable=False)  # Info, Medium, High, Critical
+    type = Column(String, default="system", nullable=False)  # risk, compliance, incident, audit, system
+    is_read = Column(Boolean, default=False, nullable=False)
+    channels = Column(String, default="toast", nullable=False)  # e.g., "toast,email,push"
+    created_at = Column(DateTime, default=datetime.datetime.utcnow, nullable=False)
+
+    __table_args__ = (
+        Index('idx_notifications_tenant_created', 'tenant_id', 'created_at'),
+        Index('idx_notifications_tenant_unread', 'tenant_id', 'is_read'),
+    )
+
 from sqlalchemy import event
 
 @event.listens_for(Risk, 'before_insert')

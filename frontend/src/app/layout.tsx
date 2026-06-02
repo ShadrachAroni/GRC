@@ -3,6 +3,7 @@ import { Inter, JetBrains_Mono } from "next/font/google";
 import "./globals.css";
 import { RouteGuard } from "@/components/organisms/RouteGuard";
 import { QueryProvider } from "@/context/QueryProvider";
+import { NotificationProvider } from "@/context/NotificationContext";
 
 const inter = Inter({
   subsets: ["latin"],
@@ -28,7 +29,9 @@ export default function RootLayout({
     <html lang="en">
       <body className={`${inter.variable} ${jetbrainsMono.variable} font-sans antialiased text-primary bg-background`}>
         <QueryProvider>
-          <RouteGuard>{children}</RouteGuard>
+          <NotificationProvider>
+            <RouteGuard>{children}</RouteGuard>
+          </NotificationProvider>
         </QueryProvider>
       </body>
     </html>
